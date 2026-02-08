@@ -1,0 +1,71 @@
+# =========================
+# KR_US_INSTITUTIONAL_BOT
+# .gitignore (Canonical)
+# =========================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyd
+
+# --- Virtualenv / environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Tooling / test caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# --- Logs / traces (runtime artifacts) ---
+*.log
+logs/
+log/
+trace/
+traces/
+
+# --- Secrets / Local config ---
+.env
+secrets/
+*.key
+*.secret
+*.pem
+*.p12
+config/local/
+config/private/
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.code-workspace
+
+# --- Runtime / temp ---
+temp/
+tmp/
+
+# --- Do NOT track runtime launchers (for now) ---
+run_*.bat
+run_*.ps1
+run_*.vbs
+
+# --- Evidence / artifacts (do NOT track runtime outputs) ---
+evidence/
+artifacts/
+artifact/
+rehearsal_artifacts/
+audit_logs/
+
+# --- Do NOT track experimental versions ---
+v8_core/
+v9_core/
+v10_core/
+v11_core/
+v29_scheduler/
