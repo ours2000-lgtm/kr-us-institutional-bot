@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GOVERNANCE_AMENDMENT_RECORD",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "amendment_id",
+    "domain",
+    "revision",
+    "stage",
+    "proposal_version",
+    "proposer",
+    "created_at_utc"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "GOVERNANCE_AMENDMENT_RECORD"
+    },
+
+    "amendment_id": {
+      "type": "string",
+      "pattern": "^AMEND-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{4}$"
+    },
+
+    "domain": {
+      "type": "string",
+      "enum": ["GOVERNANCE", "EVIDENCE", "SCHEMA", "POLICY"]
+    },
+
+    "revision": {
+      "type": "string",
+      "pattern": "^REV\\d+\\.\\d+$"
+    },
+
+    "proposal_version": {
+      "type": "string",
+      "description": "Monotonic proposal revision label (e.g., 'P1', 'P2') or semantic version for proposal evolution."
+    },
+
+    "stage": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "UNDER_REVIEW",
+        "REQUEST_CHANGES",
+        "BLOCKED",
+        "APPROVED_PENDING_RATIFICATION",
+        "WITHDRAWN",
+        "SUPERSEDED"
+      ]
+    },
+
+    "proposer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposer_id", "roles"],
+      "properties": {
+        "proposer_id": { "type": "string" },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "discussion_thread_ref": {
+      "type": "string",
+      "description": "Optional reference to a discussion thread (issue, ticket, doc, or conversation anchor)."
+    },
+
+    "change_requests": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional references to requested changes (e.g., review comments IDs, tickets)."
+    },
+
+    "targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Canonical artifact references impacted by this amendment (files, IDs, or registry keys)."
+    },
+
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+
+    "updated_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+
+    "parent_amendment_record_id": {
+      "type": "string",
+      "pattern": "^AMEND-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{4}$",
+      "description": "Optional parent record for proposal lineage; SHOULD form a DAG (no cycles)."
+    },
+
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional stable identifiers of evidence objects substantiating proposal/review steps."
+    },
+
+    "evidence_pack_ref": {
+      "type": "string",
+      "description": "Optional reference to a bundle/manifest that groups related artifacts and evidence."
+    },
+
+    "extensions": {
+      "type": "object",
+      "description": "Reserved extension object for forward-compatible metadata; MUST NOT influence canonicality unless explicitly standardized.",
+      "additionalProperties": true
+    }
+  }
+}

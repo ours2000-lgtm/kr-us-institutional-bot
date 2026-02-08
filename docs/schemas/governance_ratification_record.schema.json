@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GOVERNANCE_RATIFICATION_RECORD",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "ratification_id",
+    "amendment_id",
+    "domain",
+    "revision",
+    "ratification_tag",
+    "commit_hash",
+    "ratifying_authority",
+    "approvals",
+    "decision",
+    "decision_timestamp_utc"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "GOVERNANCE_RATIFICATION_RECORD"
+    },
+
+    "ratification_id": {
+      "type": "string",
+      "pattern": "^RATIFY-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{8}-\\d{4}$"
+    },
+
+    "amendment_id": {
+      "type": "string",
+      "pattern": "^AMEND-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{4}$"
+    },
+
+    "domain": {
+      "type": "string",
+      "enum": ["GOVERNANCE", "EVIDENCE", "SCHEMA", "POLICY"]
+    },
+
+    "revision": {
+      "type": "string",
+      "pattern": "^REV\\d+\\.\\d+$"
+    },
+
+    "ratification_tag": {
+      "type": "string",
+      "pattern": "^AMENDMENT-[A-Z]+-v\\d+\\.\\d+-\\d{8}(-[a-f0-9]{6,8})?-RATIFIED$"
+    },
+
+    "commit_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,40}$",
+      "description": "Git commit hash anchoring the ratified artifacts."
+    },
+
+    "ratifying_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_id", "authority_role"],
+      "properties": {
+        "authority_id": { "type": "string" },
+        "authority_role": { "type": "string" }
+      }
+    },
+
+    "approvals": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reviewer_id", "role", "decision", "decided_at_utc"],
+        "properties": {
+          "reviewer_id": { "type": "string" },
+          "role": { "type": "string" },
+          "decision": {
+            "type": "string",
+            "enum": ["APPROVE"]
+          },
+          "decided_at_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "decision": {
+      "type": "string",
+      "enum": ["APPROVED"]
+    },
+
+    "decision_timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+
+    "procedure_baseline_ref": {
+      "type": "string",
+      "description": "Reference to the Amendment Procedure baseline under which this ratification was executed (e.g., 'AMENDMENT_PROCEDURE REV.1.0-FINAL')."
+    },
+
+    "validation_result_code": {
+      "type": "string",
+      "enum": ["OK", "INVALID"],
+      "description": "Validator-level processing outcome for this record; MUST be 'OK' for canonical ratification."
+    },
+
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional stable identifiers of evidence objects substantiating ratification steps."
+    },
+
+    "evidence_pack_ref": {
+      "type": "string",
+      "description": "Optional reference to an evidence pack/manifest that groups related artifacts."
+    },
+
+    "extensions": {
+      "type": "object",
+      "description": "Reserved extension object for forward-compatible metadata; MUST NOT influence canonicality unless explicitly standardized.",
+      "additionalProperties": true
+    }
+  }
+}

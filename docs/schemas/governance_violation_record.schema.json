@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GOVERNANCE_VIOLATION_RECORD",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "violation_id",
+    "domain",
+    "violation_code",
+    "severity",
+    "detected_by",
+    "detected_at_utc",
+    "remediation_status"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "GOVERNANCE_VIOLATION_RECORD"
+    },
+
+    "violation_id": {
+      "type": "string",
+      "pattern": "^VIOLATE-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-\\d{8}-\\d{4}$"
+    },
+
+    "domain": {
+      "type": "string",
+      "enum": ["GOVERNANCE", "EVIDENCE", "SCHEMA", "POLICY"]
+    },
+
+    "violation_code": {
+      "type": "string",
+      "enum": [
+        "GOV_EMERGENCY_REVIEW_TIMEOUT",
+        "GOV_QUORUM_NOT_MET",
+        "GOV_EVIDENCE_MISSING",
+        "GOV_REGISTRY_DRIFT",
+        "GOV_RATIFICATION_TAG_INVALID",
+        "GOV_SCHEMA_VALIDATION_FAILED",
+        "GOV_TAG_MUTATION_DETECTED"
+      ]
+    },
+
+    "severity": {
+      "type": "string",
+      "enum": ["INFO", "WARNING", "CRITICAL", "BLOCKING"]
+    },
+
+    "detected_by": {
+      "type": "string",
+      "description": "Emitter/validator/monitor identifier that detected the violation."
+    },
+
+    "related_amendment_id": {
+      "type": "string",
+      "pattern": "^AMEND-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{4}$"
+    },
+
+    "related_ratification_id": {
+      "type": "string",
+      "pattern": "^RATIFY-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{8}-\\d{4}$"
+    },
+
+    "related_ratification_tag": {
+      "type": "string",
+      "pattern": "^AMENDMENT-[A-Z]+-v\\d+\\.\\d+-\\d{8}(-[a-f0-9]{6,8})?-RATIFIED$"
+    },
+
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Stable identifiers of evidence objects that substantiate or are impacted by this violation."
+    },
+
+    "evidence_pack_ref": {
+      "type": "string",
+      "description": "Optional reference to an evidence pack/manifest that groups related artifacts."
+    },
+
+    "detected_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+
+    "remediation_status": {
+      "type": "string",
+      "enum": ["OPEN", "ACKNOWLEDGED", "RESOLVED"]
+    },
+
+    "remediation_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_class"],
+      "properties": {
+        "action_class": {
+          "type": "string",
+          "enum": ["RESET", "RETRY", "ISOLATE", "ALERT", "ROLLBACK", "MANUAL_REVIEW"]
+        },
+        "owner": { "type": "string" },
+        "deadline_utc": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "resolution_ref": {
+      "type": "string",
+      "description": "Reference to a resolution record, ticket, PR, or follow-up amendment/evidence."
+    },
+
+    "extensions": {
+      "type": "object",
+      "description": "Reserved extension object for forward-compatible metadata.",
+      "additionalProperties": true
+    }
+  },
+  "anyOf": [
+    { "required": ["related_amendment_id"] },
+    { "required": ["related_ratification_id"] },
+    { "required": ["related_ratification_tag"] }
+  ]
+}
