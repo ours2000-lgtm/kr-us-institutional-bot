@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/v1/artifact_snapshot.schema.json",
+  "title": "ARTIFACT_SNAPSHOT",
+  "allOf": [
+    { "$ref": "evidence_core.schema.json" },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_type", "payload"],
+      "properties": {
+        "evidence_type": { "const": "ARTIFACT_SNAPSHOT" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_id", "artifact_kind", "artifact_ref", "snapshot_hash"],
+          "properties": {
+            "artifact_id": { "type": "string" },
+            "artifact_kind": { "type": "string", "enum": ["DOC", "SCHEMA", "CODE", "BINARY", "MANIFEST", "OTHER"] },
+            "artifact_ref": { "type": "string", "description": "Canonical reference or ledger key. MUST be stable (no ephemeral paths for canonical decisions)." },
+            "snapshot_hash": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["hash_method", "value"],
+              "properties": {
+                "hash_method": { "type": "string" },
+                "value": { "type": "string", "minLength": 16 }
+              }
+            },
+            "size_bytes": { "type": "integer", "minimum": 0 },
+            "evidence_refs": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  ]
+}

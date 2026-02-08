@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/v1/ci_snapshot.schema.json",
+  "title": "CI_SNAPSHOT",
+  "allOf": [
+    { "$ref": "evidence_core.schema.json" },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_type", "payload"],
+      "properties": {
+        "evidence_type": { "const": "CI_SNAPSHOT" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ci_run_id", "repo_commit", "schema_set_ref", "result"],
+          "properties": {
+            "ci_run_id": { "type": "string" },
+            "repo_commit": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+            "schema_set_ref": { "type": "string", "description": "Reference to schema set version (e.g., EVIDENCE_SCHEMA_V1 + git anchor)." },
+            "result": { "type": "string", "enum": ["PASS", "FAIL"] },
+            "failed_stage": { "type": "string", "enum": ["SCHEMA", "SEMANTIC", "CRYPTO", "REPLAY"] },
+            "violations_emitted": { "type": "array", "items": { "type": "string" } },
+            "artifact_snapshots": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  ]
+}

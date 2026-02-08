@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/v1/governance_violation_record.schema.json",
+  "title": "GOVERNANCE_VIOLATION_RECORD",
+  "allOf": [
+    { "$ref": "evidence_core.schema.json" },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_type", "payload"],
+      "properties": {
+        "evidence_type": { "const": "GOVERNANCE_VIOLATION_RECORD" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "violation_id",
+            "domain",
+            "violation_code",
+            "severity",
+            "detected_by",
+            "detected_at_utc",
+            "remediation_status"
+          ],
+          "properties": {
+            "violation_id": {
+              "type": "string",
+              "pattern": "^VIOLATE-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-\\d{8}-\\d{4}$"
+            },
+            "domain": { "type": "string", "enum": ["GOVERNANCE", "EVIDENCE", "SCHEMA", "POLICY"] },
+            "violation_code": { "type": "string" },
+            "severity": {
+              "type": "string",
+              "enum": ["INFO", "NON_BLOCKING", "WARNING", "CRITICAL", "BLOCKING"]
+            },
+            "detected_by": { "type": "string" },
+            "related_amendment_id": {
+              "type": "string",
+              "pattern": "^AMEND-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{4}$"
+            },
+            "related_ratification_id": {
+              "type": "string",
+              "pattern": "^RATIFY-(GOVERNANCE|EVIDENCE|SCHEMA|POLICY)-REV\\d+\\.\\d+-\\d{8}-\\d{4}$"
+            },
+            "related_ratification_tag": {
+              "type": "string",
+              "pattern": "^AMENDMENT-[A-Z]+-v\\d+\\.\\d+-\\d{8}(-[a-f0-9]{6,8})?-RATIFIED$"
+            },
+            "evidence_refs": { "type": "array", "items": { "type": "string" } },
+            "evidence_pack_ref": { "type": "string" },
+            "detected_at_utc": { "type": "string", "format": "date-time" },
+            "remediation_status": { "type": "string", "enum": ["OPEN", "ACKNOWLEDGED", "RESOLVED"] },
+            "remediation_plan": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["action_class"],
+              "properties": {
+                "action_class": {
+                  "type": "string",
+                  "enum": ["RESET", "RETRY", "ISOLATE", "ALERT", "ROLLBACK", "MANUAL_REVIEW"]
+                },
+                "owner": { "type": "string" },
+                "deadline_utc": { "type": "string", "format": "date-time" },
+                "notes": { "type": "string" }
+              }
+            }
+          },
+          "anyOf": [
+            { "required": ["related_amendment_id"] },
+            { "required": ["related_ratification_id"] },
+            { "required": ["related_ratification_tag"] }
+          ]
+        }
+      }
+    }
+  ]
+}

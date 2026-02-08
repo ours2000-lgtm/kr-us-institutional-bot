@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/v1/evidence_core.schema.json",
+  "title": "EVIDENCE_CORE",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "evidence_type",
+    "created_at_utc",
+    "emitter_id",
+    "semantic_ruleset_version",
+    "canonicalizer_profile_version",
+    "cryptographic_policy_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "EVIDENCE_SCHEMA_V1"
+    },
+    "evidence_id": {
+      "type": "string",
+      "minLength": 8,
+      "description": "Unique immutable identifier. MUST NOT be reused across different evidence types or runtime contexts."
+    },
+    "evidence_type": {
+      "type": "string",
+      "enum": [
+        "GOVERNANCE_AMENDMENT_RECORD",
+        "GOVERNANCE_RATIFICATION_RECORD",
+        "GOVERNANCE_VIOLATION_RECORD",
+        "ARTIFACT_SNAPSHOT",
+        "CI_SNAPSHOT",
+        "LOCK_DECLARATION"
+      ]
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "emitter_id": {
+      "type": "string"
+    },
+    "environment_context": {
+      "type": "string",
+      "enum": ["LIVE", "TEST", "REHEARSAL", "SIMULATION"],
+      "description": "Optional, but RECOMMENDED. LIVE omission SHOULD be treated as INVALID for governance/LOCK decisions."
+    },
+    "semantic_ruleset_version": {
+      "type": "string",
+      "minLength": 3,
+      "description": "MUST bind replay validation to the semantic ruleset active at Evidence creation time."
+    },
+    "canonicalizer_profile_version": {
+      "type": "string",
+      "minLength": 3,
+      "description": "MUST bind replay validation to the canonicalizer profile active at Evidence creation time."
+    },
+    "cryptographic_policy_version": {
+      "type": "string",
+      "minLength": 3,
+      "description": "MUST bind validation to Cryptographic Policy Annex version active at Evidence creation time (e.g., CRYPTOGRAPHIC_POLICY_ANNEX_v1)."
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash_method", "record_hash"],
+      "properties": {
+        "hash_method": {
+          "type": "string",
+          "description": "Algorithm identifier (policy-governed; see CRYPTOGRAPHIC_POLICY_ANNEX_v1)."
+        },
+        "record_hash": {
+          "type": "string",
+          "minLength": 16,
+          "description": "Hash of the canonical serialized Evidence record (policy-defined construction)."
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sig_alg", "signer_id", "value"],
+      "properties": {
+        "sig_alg": { "type": "string" },
+        "signer_id": { "type": "string" },
+        "key_ref": { "type": "string" },
+        "value": { "type": "string", "minLength": 32 }
+      },
+      "description": "Digital signature block. For governance/LOCK usage, signature verification is REQUIRED by semantic rules and crypto policy."
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "validation_timestamp_utc": { "type": "string", "format": "date-time" },
+        "validation_result_code": { "type": "string", "enum": ["OK", "INVALID"] },
+        "auditor_id": { "type": "string" },
+        "details": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parent_evidence_id": { "type": "string" },
+        "linked_evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Core schema permits generic payload. Each evidence_type SHALL define a strict payload contract in its dedicated schema."
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
