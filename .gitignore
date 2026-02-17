@@ -69,3 +69,17 @@ v9_core/
 v10_core/
 v11_core/
 v29_scheduler/
+
+# =========================================================
+# === CANONICAL GOVERNANCE OVERRIDES (DO NOT REMOVE) ===
+# =========================================================
+
+# Allow canonical docs (governance constitution)
+!docs/canonical/
+!docs/canonical/**
+
+# Allow canonical trace specs specifically
+!docs/canonical/trace/
+!docs/canonical/trace/**
+
+# =========================================================
