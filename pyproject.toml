@@ -24,7 +24,11 @@ dev = [
   "pytest-cov>=5.0",
   "mypy>=1.8",
   "ruff>=0.3",
-  "hypothesis>=6.0", # property-based testing (DAG 실행/에지 케이스)
+
+  # property-based testing (DAG 실행/에지 케이스)
+  # NOTE: 6.151.9에서 pytest/hypothesis 내부 TreeNode API 변경 이슈로 실패 발생했으므로 핀 고정
+  "hypothesis==6.100.2",
+
   "pre-commit>=3.5", # lint/test 훅
 ]
 

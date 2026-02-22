@@ -1,23 +1,32 @@
-"""
-integration_core
+from __future__ import annotations
 
-SSOT primitives shared across domains:
-- traceability IDs (PLAN/VAL/ROLLOUT)
-- global lifecycle enum
-- cross-domain consistency check interface
-"""
-from .ids import TraceabilityId, TraceabilityIdError, generate_id, parse_id, validate_id
-from .lifecycle import LifecycleState
-from .consistency import ConsistencyMode, ConsistencyResult, ConsistencyChecker
+from integration_core.consistency import (
+    ConsistencyChecker,
+    ConsistencyMode,
+    ConsistencyResult,
+    enforce,
+)
+
+from integration_core.ids import (
+    TraceabilityId,
+    TraceabilityIdError,
+    allowed_prefixes,
+    generate_id,
+    parse_id,
+    validate_id,
+)
 
 __all__ = [
+    # ids
     "TraceabilityId",
     "TraceabilityIdError",
+    "allowed_prefixes",
     "generate_id",
     "parse_id",
     "validate_id",
-    "LifecycleState",
+    # consistency
+    "ConsistencyChecker",
     "ConsistencyMode",
     "ConsistencyResult",
-    "ConsistencyChecker",
+    "enforce",
 ]
