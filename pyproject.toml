@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kr-us-institutional-bot-governance"
+version = "0.1.0"
+description = "Governance runtime and control plane MVP"
+authors = [{ name = "Governance Council" }]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+
+# --- 런타임 의존성 (MVP 최소) ---
+dependencies = [
+  "cryptography>=42.0", # Execution Plan 서명/검증
+  "networkx>=3.0",      # DAG 빌더 / Validator Executor
+  "pydantic>=2.5",      # Evidence/Plan 스키마 검증
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "mypy>=1.8",
+  "ruff>=0.3",
+  "hypothesis>=6.0", # property-based testing (DAG 실행/에지 케이스)
+  "pre-commit>=3.5", # lint/test 훅
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+# MVP test isolation: do not collect legacy tests/ during MVP bootstrap.
+testpaths = ["tests_mvp"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
+precision = 2
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+warn_return_any = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = []
