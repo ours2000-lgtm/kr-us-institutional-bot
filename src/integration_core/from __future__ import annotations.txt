@@ -1,0 +1,230 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Set
+
+
+# =============================
+# Result contract
+# =============================
+
+@dataclass(frozen=True)
+class ConsistencyResult:
+    ok: bool
+    code: str
+    severity: str
+    message: str
+
+
+# =============================
+# Helpers
+# =============================
+
+def _prefix(id_str: str) -> str:
+    return id_str.split("-", 1)[0]
+
+
+def _is_plan(id_str: str) -> bool:
+    return _prefix(id_str) == "PLAN"
+
+
+def _is_val(id_str: str) -> bool:
+    return _prefix(id_str) == "VAL"
+
+
+def _is_rollout(id_str: str) -> bool:
+    return _prefix(id_str) == "ROLLOUT"
+
+
+def _incoming(edges: Iterable[Dict], target: str, rel: str) -> List[Dict]:
+    return [e for e in edges if e["to_id"] == target and e["rel"] == rel]
+
+
+# =============================
+# Checks
+# =============================
+
+def check_required_edges(nodes: List[str], edges: List[Dict]) -> List[ConsistencyResult]:
+    results: List[ConsistencyResult] = []
+
+    for n in nodes:
+        if _is_val(n):
+            incoming = _incoming(edges, n, "PLAN_TO_VAL")
+            if len(incoming) == 0:
+                results.append(
+                    ConsistencyResult(
+                        False,
+                        "CONSISTENCY:VAL_MISSING_PLAN_EDGE",
+                        "HIGH",
+                        f"VAL {n} missing PLAN_TO_VAL",
+                    )
+                )
+            elif len(incoming) > 1:
+                results.append(
+                    ConsistencyResult(
+                        False,
+                        "CONSISTENCY:VAL_TOO_MANY_PLAN_EDGES",
+                        "LOW",
+                        f"VAL {n} must have exactly one PLAN_TO_VAL",
+                    )
+                )
+
+        if _is_rollout(n):
+            incoming = _incoming(edges, n, "VAL_TO_ROLLOUT")
+            if len(incoming) == 0:
+                results.append(
+                    ConsistencyResult(
+                        False,
+                        "CONSISTENCY:ROLLOUT_MISSING_VAL_EDGE",
+                        "HIGH",
+                        f"ROLLOUT {n} missing VAL_TO_ROLLOUT",
+                    )
+                )
+
+    return results
+
+
+def check_no_duplicates(edges: List[Dict]) -> List[ConsistencyResult]:
+    seen: Set = set()
+    results: List[ConsistencyResult] = []
+
+    for e in edges:
+        key = (e["from_id"], e["to_id"], e["rel"], e.get("rel_version", 1))
+        if key in seen:
+            results.append(
+                ConsistencyResult(
+                    False,
+                    "CONSISTENCY:DUPLICATE_EDGE",
+                    "LOW",
+                    f"duplicate edge from={e['from_id']} to={e['to_id']} rel={e['rel']}/v{e.get('rel_version',1)}",
+                )
+            )
+        else:
+            seen.add(key)
+
+    return results
+
+
+def check_edge_metadata(edges: List[Dict]) -> List[ConsistencyResult]:
+    results: List[ConsistencyResult] = []
+
+    required_fields = ["timestamp", "principal", "evidence_ref", "policy_ref", "signature"]
+
+    for e in edges:
+        for f in required_fields:
+            if not e.get(f):
+                results.append(
+                    ConsistencyResult(
+                        False,
+                        "CONSISTENCY:EDGE_METADATA_MISSING",
+                        "MEDIUM",
+                        f"edge metadata missing {f}",
+                    )
+                )
+
+        if e.get("rel_version") != 1:
+            results.append(
+                ConsistencyResult(
+                    False,
+                    "CONSISTENCY:REL_VERSION_INVALID",
+                    "MEDIUM",
+                    "rel_version must be 1 for MVP",
+                )
+            )
+
+    return results
+
+
+def check_reachability(nodes: List[str], edges: List[Dict]) -> List[ConsistencyResult]:
+    adj: Dict[str, Set[str]] = {}
+
+    for e in edges:
+        adj.setdefault(e["from_id"], set()).add(e["to_id"])
+
+    plans = {n for n in nodes if _is_plan(n)}
+    rollouts = {n for n in nodes if _is_rollout(n)}
+
+    reachable: Set[str] = set()
+
+    def dfs(start: str):
+        stack = [start]
+        while stack:
+            node = stack.pop()
+            if node in reachable:
+                continue
+            reachable.add(node)
+            stack.extend(adj.get(node, []))
+
+    for p in plans:
+        dfs(p)
+
+    results: List[ConsistencyResult] = []
+
+    for r in rollouts:
+        if r not in reachable:
+            results.append(
+                ConsistencyResult(
+                    False,
+                    "CONSISTENCY:ROLLOUT_UNREACHABLE",
+                    "HIGH",
+                    f"ROLLOUT {r} not reachable from any PLAN",
+                )
+            )
+
+    return results
+
+
+def check_dag(edges: List[Dict]) -> List[ConsistencyResult]:
+    adj: Dict[str, Set[str]] = {}
+
+    for e in edges:
+        adj.setdefault(e["from_id"], set()).add(e["to_id"])
+
+    visited: Set[str] = set()
+    visiting: Set[str] = set()
+
+    def dfs(node: str) -> bool:
+        if node in visiting:
+            return True
+        if node in visited:
+            return False
+
+        visiting.add(node)
+        for nxt in adj.get(node, []):
+            if dfs(nxt):
+                return True
+        visiting.remove(node)
+        visited.add(node)
+        return False
+
+    for n in list(adj):
+        if dfs(n):
+            return [
+                ConsistencyResult(
+                    False,
+                    "CONSISTENCY:CYCLE",
+                    "HIGH",
+                    "cycle detected in graph",
+                )
+            ]
+
+    return []
+
+
+# =============================
+# Enforcement
+# =============================
+
+def enforce(results: List[ConsistencyResult], mode: str = "block") -> None:
+    violations = [r for r in results if not r.ok]
+
+    if not violations:
+        return
+
+    if mode == "warn":
+        return
+
+    if mode == "block":
+        raise RuntimeError("Consistency violations detected")
+
+    raise ValueError("mode must be 'warn' or 'block'")
