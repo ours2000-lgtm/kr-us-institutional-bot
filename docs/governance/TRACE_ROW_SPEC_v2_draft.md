@@ -1,76 +1,71 @@
-📜 TRACE_ROW_SPEC_v2 — Canonical Structure (Refined Skeleton)
-0. Document Control
-0.1 Document Metadata
+📜 TRACE_ROW_SPEC_v2_draft.md
 
-Status
+FULL CANONICAL VERSION (PATCHED SNAPSHOT)
 
-Version
+DOCUMENT CONTROL
 
-Classification
+Document ID: TRACE_ROW_SPEC_v2
+Version: 2.0-draft
+Status: DRAFT
+Classification: CANONICAL
+Owner: Governance Council
+Last Updated: 2026-02-18
 
-Authority
+1. PURPOSE
 
-Approval Record
+The TRACE_ROW specification defines the canonical contract for representing enforcement traceability across invariant, rule, engine, signal, risk, decision, execution, evidence, and health domains.
 
-Effective From UTC
+It ensures that every TRACE_ROW serves as an auditable, self-contained governance artifact capable of supporting operational monitoring, regulatory compliance, and lifecycle governance.
 
-Effective To UTC
+This specification establishes mandatory structural, semantic, and lifecycle requirements for TRACE_ROW artifacts across all environments.
 
-0.2 Version Lineage
+Lifecycle state transitions and gating requirements are formally defined in the TRACE_ROW Lifecycle Truth Table specification (TRACE_ROW_LIFECYCLE_TRUTH_TABLE_v2).
+All implementations MUST comply with the lifecycle contract defined therein.
 
-Supersedes
+2. SCOPE
 
-Compatibility Statement
+This specification applies to all TRACE_ROW artifacts within the governance control plane.
 
-1. Purpose
+It covers identity, chain integrity, scope bindings, evidence linkage, risk alignment, health monitoring, lifecycle governance, validation, and regulatory mapping.
 
-TRACE_ROW의 역할 정의
+3. DEFINITIONS
 
-Enforcement trace unit 정의
+TRACE_ROW — Canonical enforcement trace artifact.
+Lifecycle State — DRAFT | ACTIVE | DEPRECATED | RETIRED.
+Validation Domain — Logical consistency check domain.
+GAP Event — Detected inconsistency requiring governance action.
 
-Governance control ledger 역할
+4. IDENTITY & METADATA
 
-Audit reconstruction 단위
+Required Fields:
 
-Risk / Evidence / Health 연결 객체
+trace_row_id (immutable)
 
-2. Scope
-2.1 Functional Scope
+spec_version
 
-TRACE_ROW가 적용되는 범위
+status
 
-Governance control plane
+owner_role
 
-Execution / validation / assurance
+created_at_utc
 
-2.2 Deployment Scope
+last_modified_utc
 
-Multi-tenant environments
+approval_record_id
 
-Multi-region deployments
+supersedes_row_id
 
-3. Definitions
+compatibility_matrix_ref
 
-핵심 용어 정의
+TRACE_ROW identity MUST remain immutable once ACTIVE.
 
-Chain Binding
+5. CHAIN BINDINGS
 
-Evidence Binding
+Canonical Enforcement Chain:
 
-Health Binding
+Invariant → Rule → Engine → Signal → Risk → Decision → Execution → Evidence → Health
 
-GAP
-
-STACK_DRIFT
-
-Crisis Mode
-
-Quality Score
-
-4. TRACE_ROW Identity Model
-4.1 Core Identity Fields
-
-trace_row_id
+Required References:
 
 invariant_ref
 
@@ -78,97 +73,85 @@ rule_ref
 
 engine_ref
 
-signal_type
-
-decision_type
-
-4.2 Versioning Fields
-
-spec_version
-
-supersedes_row_id
-
-effective_from_utc
-
-effective_to_utc
-
-5. Scope Model
-5.1 Deployment Scope Attributes
-
-tenant_scope[]
-
-region_scope[]
-
-environment
-
-5.2 Ownership Model
-
-owner_role
-
-steward_role
-
-reviewer
-
-6. Chain Bindings
-
-Canonical Enforcement Chain
-
-Invariant → Rule → Engine → Signal → Risk → Decision → Execution → Evidence → Health
-
-6.1 Binding Requirements
-
-각 노드 존재 조건
-
-6.2 Chain Completeness Rules
-
-Fail-Closed 조건
-
-7. Risk & Policy Model
-7.1 Risk Assessment
+signal_ref
 
 risk_assessment_ref
 
-threshold_ref
+decision_ref
 
-severity
+execution_ref
 
-7.2 Policy Binding
+evidence_binding_ref
 
-policy_ref
+health_binding_ref
 
-action_policy
+Broken bindings MUST emit GAP_CHAIN_INTEGRITY.
 
-8. Evidence Binding
-8.1 Evidence References
+6. SCOPE & ENVIRONMENT BINDING
+
+Fields:
+
+tenant
+
+region
+
+environment
+
+service_scope
+
+control_plane_scope
+
+Scope inconsistencies MUST emit GAP_SCOPE_DRIFT.
+
+7. EVIDENCE BINDING
+
+Fields:
 
 evidence_refs[]
 
-applied_spec_id
-
-integrity_hash
-
 ledger_anchor_ref
 
-8.2 Evidence Metadata
+audit_trace_id
 
-creator
+audit_path_ref
 
-approver
+evidence_integrity_hash
 
-created_at
+Integrity failures MUST emit GAP_EVIDENCE_INTEGRITY.
 
-9. Health Binding
-9.1 Health KPIs
+8. RISK & POLICY ALIGNMENT
 
-latency_p50/p90/p99
+Fields:
 
-throughput
+policy_ref
+
+risk_threshold_ref
+
+action_policy
+
+escalation_path
+
+waiver_ref
+
+Policy inconsistencies MUST emit GAP_POLICY_MISALIGNMENT.
+
+9. HEALTH & OBSERVABILITY BINDING
+
+KPIs:
+
+latency_p50_ms
+
+latency_p90_ms
+
+latency_p99_ms
+
+throughput_rps
 
 error_rate
 
-saturation
+saturation_metrics
 
-9.2 SLO / SLA Integration
+References:
 
 slo_ref
 
@@ -176,135 +159,80 @@ sla_ref
 
 error_budget_ref
 
-10. Automation & Integration
-10.1 Automation Hooks
+observability_ref
 
-automation_hook_ref
+Sustained SLO violations MUST emit GAP_PERF_SLO_BREACH.
 
-automation_execution_log_ref
+10. EXTERNAL CONTROL & REGULATORY MAPPING
 
-10.2 External Integrations
+Fields:
 
-cmdb_ci_ref
-
-siem_event_ref
-
-soar_playbook_ref
-
-11. Lifecycle Model
-11.1 Lifecycle States
-
-DRAFT / ACTIVE / DEPRECATED / RETIRED
-
-11.2 Transition Rules
-
-See Annex A — Lifecycle Truth Table
-
-12. Crisis Mode
-12.1 Crisis Levels
-
-LEVEL_1 / LEVEL_2 / LEVEL_3
-
-12.2 Trigger Mapping
-
-crisis_policy_ref
-
-13. External Control Mapping
-
-external_control_ref[]
+external_control_ref
 
 regulatory_mapping_ref
 
-14. Continuous Improvement Integration
-
-ci_registry_ref
-
-improvement_backlog_ref
-
-🔒 15. GAP Management
-15.1 GAP Classes
-
-See Annex B — GAP Taxonomy
-
-15.2 Severity Model
-15.3 Escalation
-📊 16. Quality & Validation
-
-This section incorporates the full Quality & Validation model.
-
-See Annex C — Quality Score Model
-
-(J.1–J.4 included here as normative subsections.)
-
-17. Observability
-
-observability_ref
-
-dashboard_ref
-
-18. Audit Model
-18.1 Audit Trace
-
-audit_trace_id
-
-audit_path_ref
-
-18.2 Audit Packaging
-
-See Annex D — Audit Packaging Schema
-
-19. Security & Integrity
-
-encryption_status
-
-integrity_check_ref
-
-signature_ref
-
-20. Performance & Resilience
-
-performance_summary
-
-performance_thresholds_ref
-
-resilience_test_ref
-
-resilience_test_result_summary
-
-21. Regulatory & Compliance
-
 regulatory_validation_job_ref
-
-regulatory_validation_periodicity
 
 regulatory_audit_ref
 
-22. Lifecycle Sunset & Archival
+Regulatory drift MUST emit GAP_REGULATORY_DRIFT.
 
-sunset_policy_ref
+11. LIFECYCLE MODEL
 
-archival_policy_ref
+Lifecycle state transitions and gating requirements are formally defined in the TRACE_ROW Lifecycle Truth Table specification (TRACE_ROW_LIFECYCLE_TRUTH_TABLE_v2).
+All implementations MUST comply with the lifecycle contract defined therein.
 
-retirement_evidence_ref
+11.1 DRAFT
 
-archival_evidence_ref
+Under construction, not enforceable.
 
-sunset_execution_log_ref
+11.2 ACTIVE
 
-23. Metadata & Compatibility
+Approved for enforcement.
+Must meet quality, validation, and integrity requirements.
 
-compatibility_matrix_ref
+11.3 DEPRECATED
 
-applied_spec_metadata
+Scheduled for retirement.
+Integrity validation SHOULD continue.
 
-24. Implementation Neutrality
+11.4 RETIRED
 
-구현 방식 비의존 선언
+No longer operational.
+Must include retirement and archival evidence.
 
-25. Annex References
-Annex A — Lifecycle Truth Table
-Annex B — GAP Taxonomy
-Annex C — Quality Score Model
-Annex D — Audit Packaging Schema
-Annex E — API Examples
-Annex F — Crisis Policy Templates
+J. QUALITY & VALIDATION
+
+TRACE_ROW artifacts MUST support validation across domains:
+
+Cross-domain consistency
+
+Lifecycle enforcement
+
+Compatibility regression
+
+Scope drift detection
+
+Evidence integrity anchoring
+
+Policy-action alignment
+
+Health budget enforcement
+
+External control sync
+
+Quality scoring SHOULD evaluate completeness, consistency, integrity, and compliance.
+
+18. ANNEX REFERENCES
+
+Annex A — Crisis Profiles
+Annex B — Audit Export Bundles
+Annex C — Lifecycle Scenarios
+Annex D — Quality Model
+Annex E — GAP Taxonomy
+Annex F — Waiver Governance Templates
+
+LOCK STATEMENT
+
+This document represents a canonical governance specification snapshot.
+All implementations MUST comply with normative requirements defined herein.
