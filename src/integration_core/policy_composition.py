@@ -1,54 +1,50 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import List, Literal, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+from src.integration_core.policy import (
+    Grade,
+    Mode,
+    PolicyDecision,
+    ReasonCode,
+    apply_policy,
+)
+
+# -----------------------------
+# Types
+# -----------------------------
 
 
-# ---------------------------------------------------------------------
-# Core enums
-# ---------------------------------------------------------------------
-Grade = Literal["PASS", "WARN", "BLOCK"]
-Decision = Literal["ALLOW", "BLOCK"]
-Mode = Literal["default", "strict", "warn", "block"]
-
-Strategy = Literal["fail-closed", "quorum", "weighted"]
-
-
-ReasonCode = Literal[
-    # aggregation/policy layer
-    "P0-AGG-BLOCK",
-    "P0-MODE-BLOCK-ALL",
-    "P0-MODE-STRICT-BLOCK",
-    "P0-POLICY-MISMATCH",
-    "P2-AGG-WARN-ALLOW",
-    "P2-AGG-PASS-ALLOW",
-    "P2-MODE-WARN-ALLOW",
-    # composition layer markers
-    "P0-COMPOSITE-BLOCK",
-    "P2-COMPOSITE-ALLOW",
-]
-
-
-# ---------------------------------------------------------------------
-# RuleSet / Specs
-# ---------------------------------------------------------------------
 @dataclass(frozen=True)
 class RuleSet:
     """
-    Composition ruleset identity + strategy selector.
+    RuleSet (v0.5+)
 
-    strategy meanings (v0.5.2):
-    - fail-closed: ANY component BLOCK => final BLOCK
-    - quorum     : reserved (NotImplementedError)
-    - weighted   : reserved (NotImplementedError)
+    strategy:
+      - "fail_closed": legacy (equivalent to quorum(k=1))
+      - "quorum": blocked_count >= quorum_k => BLOCK else ALLOW
+      - "weighted": reserved (not implemented in this card)
+      - "reserved": reserved (not implemented in this card)
+
+    quorum_k:
+      - Only used when strategy == "quorum"
+      - Must satisfy: 1 <= quorum_k <= enabled_components_count
+        (if not, fail-fast with ValueError)
     """
-    name: str
-    version: str
-    strategy: Strategy = "fail-closed"
+
+    name: str = "default"
+    version: str = "v0.5"
+    strategy: str = "fail_closed"
+    quorum_k: int = 1
 
 
 @dataclass(frozen=True)
 class PolicySpec:
+    """
+    Policy definition spec for composition.
+    """
+
     ref: str
     version: str
     enabled: bool = True
@@ -57,21 +53,12 @@ class PolicySpec:
     expected_version: Optional[str] = None
 
 
-# ---------------------------------------------------------------------
-# Decisions
-# ---------------------------------------------------------------------
-@dataclass(frozen=True)
-class PolicyDecision:
-    decision: Decision
-    reason_codes: List[ReasonCode]
-    policy_ref: str
-    policy_version: str
-    grade: Optional[Grade] = None
-    notes: Optional[str] = None
-
-
 @dataclass(frozen=True)
 class CompositionMeta:
+    """
+    Meta is for audit/debug (NOT hashed).
+    """
+
     ruleset: RuleSet
     ordered_policy_refs: List[str]
     ordered_policy_versions: List[str]
@@ -82,143 +69,103 @@ class CompositionMeta:
 
 @dataclass(frozen=True)
 class CompositePolicyDecision:
-    meta: CompositionMeta
-    components: List[PolicyDecision]
+    """
+    Composition result (v0.5):
+    - final: the composed PolicyDecision (hashed via Evidence core)
+    - components/meta: rich_context only (MUST NOT affect hashes)
+    """
+
     final: PolicyDecision
+    components: List[PolicyDecision]
+    meta: CompositionMeta
 
 
-# ---------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------
-_GRADE_ORDER = {"PASS": 0, "WARN": 1, "BLOCK": 2}
+# -----------------------------
+# Helpers
+# -----------------------------
 
 
-def _max_grade(grades: Sequence[Optional[Grade]]) -> Optional[Grade]:
-    g = [x for x in grades if x is not None]
-    if not g:
-        return None
-    return max(g, key=lambda x: _GRADE_ORDER[x])
+_GRADE_ORDER: Dict[Grade, int] = {"PASS": 0, "WARN": 1, "BLOCK": 2}
 
 
-def _stable_unique(xs: Sequence[ReasonCode]) -> List[ReasonCode]:
-    seen = set()
+def _grade_max(grades: List[Grade]) -> Grade:
+    if not grades:
+        # fail-closed default if no components (should not happen in normal flow)
+        return "BLOCK"
+    return max(grades, key=lambda g: _GRADE_ORDER[g])
+
+
+def _stable_unique(codes: List[ReasonCode]) -> List[ReasonCode]:
+    seen: set[str] = set()
     out: List[ReasonCode] = []
-    for x in xs:
-        if x in seen:
-            continue
-        seen.add(x)
-        out.append(x)
+    for c in codes:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
     return out
 
 
-def _sort_specs(policies: Sequence[PolicySpec]) -> List[PolicySpec]:
-    # enabled first, then priority, then stable lexical
-    return sorted(
-        list(policies),
-        key=lambda s: (not s.enabled, s.priority, s.ref, s.version),
-    )
+def _sort_specs(specs: List[PolicySpec]) -> List[PolicySpec]:
+    # Deterministic ordering: priority ASC, then ref ASC, then version ASC
+    return sorted(specs, key=lambda s: (s.priority, s.ref, s.version))
 
 
-# ---------------------------------------------------------------------
-# Minimal apply_policy used by composition
-# (If you already have src/integration_core/policy.py apply_policy,
-#  this function is ONLY for composition fallback usage; you may remove
-#  if composition calls the other apply_policy directly.)
-# ---------------------------------------------------------------------
-def apply_policy(
-    aggregation_result,
-    *,
-    mode: Mode = "default",
-    policy_ref: str = "AnyFailBlockPolicy",
-    policy_version: str = "v0.5",
-    expected_policy_ref: Optional[str] = None,
-    expected_policy_version: Optional[str] = None,
-) -> PolicyDecision:
-    """
-    v0.5 policy SSOT (thin): decision derived from aggregation grade + mode.
-
-    NOTE:
-    - This exists to keep composition self-contained.
-    - If your project already defines apply_policy elsewhere, composition can import it.
-    """
-    grade: Grade = aggregation_result.grade  # expects Grade str
-    reason_codes: List[ReasonCode] = []
-    notes: Optional[str] = None
-
-    exp_ref = expected_policy_ref or policy_ref
-    exp_ver = expected_policy_version or policy_version
-    if policy_ref != exp_ref or policy_version != exp_ver:
-        reason_codes.append("P0-POLICY-MISMATCH")
-
-    # Mode semantics
-    if mode == "block":
-        decision: Decision = "BLOCK"
-        reason_codes.append("P0-MODE-BLOCK-ALL")
-        notes = "Mode=block => unconditional BLOCK."
-
-    elif mode == "strict":
-        if grade in ("BLOCK", "WARN"):
-            decision = "BLOCK"
-            reason_codes.append("P0-MODE-STRICT-BLOCK")
-            notes = "Mode=strict => WARN/BLOCK treated as BLOCK."
-        else:
-            decision = "ALLOW"
-            reason_codes.append("P2-AGG-PASS-ALLOW")
-            notes = "Allow with PASS grade under strict mode."
-
-    else:  # default / warn
-        if grade == "BLOCK":
-            decision = "BLOCK"
-            reason_codes.append("P0-AGG-BLOCK")
-            notes = "Aggregation grade BLOCK => fail-closed."
-        else:
-            decision = "ALLOW"
-            if grade == "WARN":
-                if mode == "warn":
-                    reason_codes.append("P2-MODE-WARN-ALLOW")
-                    notes = "Mode=warn => WARN allowed with explicit mode reason."
-                else:
-                    reason_codes.append("P2-AGG-WARN-ALLOW")
-                    notes = "Allow with WARN grade."
-            else:
-                reason_codes.append("P2-AGG-PASS-ALLOW")
-                notes = "Allow with PASS grade."
-
-    return PolicyDecision(
-        decision=decision,
-        reason_codes=_stable_unique(reason_codes),
-        policy_ref=policy_ref,
-        policy_version=policy_version,
-        grade=grade,
-        notes=notes,
-    )
+def _compose_fail_closed(components: List[PolicyDecision]) -> Tuple[str, Grade]:
+    # Legacy fail-closed: ANY BLOCK => BLOCK; else ALLOW
+    any_block = any(c.decision == "BLOCK" for c in components)
+    final_decision = "BLOCK" if any_block else "ALLOW"
+    final_grade = _grade_max([c.grade for c in components if c.grade is not None] or ["BLOCK"])
+    return final_decision, final_grade
 
 
-# ---------------------------------------------------------------------
-# Composition
-# ---------------------------------------------------------------------
+def _compose_quorum(ruleset: RuleSet, components: List[PolicyDecision]) -> Tuple[str, Grade]:
+    enabled_count = len(components)
+    k = ruleset.quorum_k
+
+    if k < 1:
+        raise ValueError(f"RuleSet.quorum_k must be >= 1 (got {k})")
+    if enabled_count <= 0:
+        raise ValueError("quorum strategy requires at least one enabled policy component")
+    if k > enabled_count:
+        raise ValueError(
+            f"RuleSet.quorum_k must be <= enabled policy count (k={k}, enabled={enabled_count})"
+        )
+
+    blocked = sum(1 for c in components if c.decision == "BLOCK")
+    final_decision = "BLOCK" if blocked >= k else "ALLOW"
+    final_grade = _grade_max([c.grade for c in components if c.grade is not None] or ["BLOCK"])
+    return final_decision, final_grade
+
+
+# -----------------------------
+# Public API
+# -----------------------------
+
+
 def compose_policies(
-    aggregation_result,
+    aggregation_result: Any,
     *,
-    policies: Sequence[PolicySpec],
+    policies: List[PolicySpec],
     mode: Mode = "default",
     ruleset: Optional[RuleSet] = None,
 ) -> CompositePolicyDecision:
     """
-    Compose multiple policy decisions into a single final decision.
+    Compose multiple policies into a single final decision.
 
-    v0.5.2:
-    - fail-closed is implemented (ANY BLOCK => BLOCK)
-    - quorum/weighted are reserved (NotImplementedError)
+    Invariants:
+    - Composition marker reason code MUST appear exactly once in final.reason_codes.
+      - BLOCK => "P0-COMPOSITE-BLOCK"
+      - ALLOW => "P2-COMPOSITE-ALLOW"
+    - Ordering of reason_codes MUST be deterministic for identical inputs.
     """
-    ruleset = ruleset or RuleSet(name="v0.5-fail-closed", version="v0.5", strategy="fail-closed")
+    rs = ruleset or RuleSet(name="default", version="v0.5", strategy="fail_closed")
 
     ordered = _sort_specs(policies)
     enabled = [s for s in ordered if s.enabled]
     disabled = [s for s in ordered if not s.enabled]
 
     meta = CompositionMeta(
-        ruleset=ruleset,
+        ruleset=rs,
         ordered_policy_refs=[s.ref for s in enabled],
         ordered_policy_versions=[s.version for s in enabled],
         disabled_policy_refs=[s.ref for s in disabled],
@@ -226,13 +173,11 @@ def compose_policies(
         disabled_policy_priorities=[s.priority for s in disabled],
     )
 
+    # Evaluate enabled policies
     components: List[PolicyDecision] = []
-    merged_reason_codes: List[ReasonCode] = []
-
     for spec in enabled:
         exp_ref = spec.expected_ref or spec.ref
         exp_ver = spec.expected_version or spec.version
-
         d = apply_policy(
             aggregation_result,
             mode=mode,
@@ -242,51 +187,44 @@ def compose_policies(
             expected_policy_version=exp_ver,
         )
         components.append(d)
-        merged_reason_codes.extend(d.reason_codes)
 
-    final_grade = _max_grade([c.grade for c in components]) or aggregation_result.grade
+    if not components:
+        # fail-fast: composition requires at least one enabled policy
+        raise ValueError("compose_policies requires at least one enabled policy spec")
 
-    # Strategy dispatch
-    if ruleset.strategy == "fail-closed":
-        final_decision: Decision = "BLOCK" if any(c.decision == "BLOCK" for c in components) else "ALLOW"
-    elif ruleset.strategy == "quorum":
-        raise NotImplementedError("RuleSet.strategy='quorum' is reserved for v0.6+")
-    elif ruleset.strategy == "weighted":
-        raise NotImplementedError("RuleSet.strategy='weighted' is reserved for v0.6+")
+    # Compose decision/grade
+    if rs.strategy == "fail_closed":
+        final_decision, final_grade = _compose_fail_closed(components)
+    elif rs.strategy == "quorum":
+        final_decision, final_grade = _compose_quorum(rs, components)
+    elif rs.strategy == "weighted":
+        raise NotImplementedError("RuleSet.strategy='weighted' is reserved for a later card")
+    elif rs.strategy == "reserved":
+        raise NotImplementedError("RuleSet.strategy='reserved' is reserved for a later card")
     else:
-        raise ValueError(f"Unknown ruleset.strategy: {ruleset.strategy}")
+        raise ValueError(f"Unknown RuleSet.strategy: {rs.strategy!r}")
 
-    # Composition marker must be the first reason code
+    # Merge reason codes deterministically (policy priority order already applied)
+    merged: List[ReasonCode] = []
+    for c in components:
+        merged.extend(list(c.reason_codes))
+
+    # Add composition marker at the front (then stable-unique)
     if final_decision == "BLOCK":
-        merged_reason_codes.insert(0, "P0-COMPOSITE-BLOCK")
-        notes = f"composition={ruleset.name}@{ruleset.version} strategy={ruleset.strategy}: BLOCK"
-        policy_ref = "COMPOSITE"
-        policy_version = ruleset.version
-        final_reason_codes = _stable_unique(merged_reason_codes)
+        merged.insert(0, "P0-COMPOSITE-BLOCK")
     else:
-        merged_reason_codes.insert(0, "P2-COMPOSITE-ALLOW")
-        notes = f"composition={ruleset.name}@{ruleset.version} strategy={ruleset.strategy}: ALLOW"
-        policy_ref = "COMPOSITE"
-        policy_version = ruleset.version
-        final_reason_codes = _stable_unique(merged_reason_codes)
+        merged.insert(0, "P2-COMPOSITE-ALLOW")
 
+    merged = _stable_unique(merged)
+
+    # Final policy decision identity for composed layer
     final = PolicyDecision(
         decision=final_decision,
-        reason_codes=final_reason_codes,
-        policy_ref=policy_ref,
-        policy_version=policy_version,
+        reason_codes=merged,
+        policy_ref="COMPOSITE",
+        policy_version=rs.version,
         grade=final_grade,
-        notes=notes,
+        notes=f"v0.5 composition ({rs.strategy})",
     )
 
-    return CompositePolicyDecision(
-        meta=meta,
-        components=components,
-        final=final,
-    )
-
-
-def composition_meta_to_dict(meta: CompositionMeta) -> dict:
-    d = asdict(meta)
-    # RuleSet is a dataclass; asdict already expands it.
-    return d
+    return CompositePolicyDecision(final=final, components=components, meta=meta)
