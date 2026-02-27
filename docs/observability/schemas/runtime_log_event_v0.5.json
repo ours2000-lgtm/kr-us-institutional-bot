@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "runtime_log_event_v0.5",
+  "type": "object",
+  "additionalProperties": true,
+
+  "required": ["ts_utc", "level", "component", "event", "emitter_id"],
+
+  "properties": {
+    "ts_utc": { "type": "string", "format": "date-time" },
+
+    "level": { "type": "string", "enum": ["INFO", "WARN", "ERROR"] },
+
+    "component": {
+      "type": "string",
+      "enum": [
+        "control_plane",
+        "policy_registry",
+        "ruleset",
+        "composition",
+        "aggregation",
+        "override",
+        "pipeline",
+        "evidence_writer",
+        "runtime"
+      ]
+    },
+
+    "event": {
+      "type": "string",
+      "enum": [
+        "RUN_STARTED",
+        "POLICYSET_RESOLVED",
+        "RULESET_STRATEGY_SELECTED",
+        "POLICY_EVALUATED",
+        "AGGREGATION_COMPLETED",
+        "OVERRIDE_APPLIED",
+        "CONSISTENCY_PIPELINE_COMPLETED",
+        "EVIDENCE_EMITTED",
+        "FAIL_CLOSED_BLOCKED"
+      ]
+    },
+
+    "emitter_id": { "type": "string", "minLength": 1 },
+
+    "trace_id": { "type": "string", "minLength": 1 },
+
+    "run_id": { "type": "string" },
+    "version": { "type": "string" },
+    "git_sha": { "type": "string" },
+    "host": { "type": "string" },
+    "pid": { "type": "integer" },
+
+    "latency_ms": { "type": "integer", "minimum": 0 },
+
+    "decision": { "type": "string", "enum": ["ALLOW", "BLOCK"] },
+    "grade": { "type": "string", "enum": ["PASS", "WARN", "BLOCK"] },
+
+    "policy_ref": { "type": "string" },
+
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+
+    "marker": {
+      "type": "object",
+      "required": ["code", "index", "count"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "index": { "type": "integer", "const": 0 },
+        "count": { "type": "integer", "const": 1 }
+      },
+      "additionalProperties": true
+    },
+
+    "inputs_hash": { "type": "string" },
+    "evidence_hash": { "type": "string" },
+
+    "override_op": { "type": "string", "enum": ["replace", "patch", "force"] },
+    "override_target": { "type": "string" },
+    "override_result": { "type": "string", "enum": ["applied", "skipped", "rejected"] },
+    "override_hash_safe": { "type": "boolean" },
+    "override_notes": { "type": "string" },
+
+    "pipeline_name": { "type": "string" },
+    "pipeline_result": { "type": "string", "enum": ["PASS", "WARN", "BLOCK"] },
+    "violations_count": { "type": "integer", "minimum": 0 },
+
+    "rc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol": { "type": "string" },
+        "market": { "type": "string" },
+        "session": { "type": "string" },
+        "scenario_id": { "type": "string" },
+        "env": { "type": "string" },
+        "user_id": { "type": "string" }
+      }
+    },
+
+    "rc_truncated": { "type": "boolean" }
+  },
+
+  "allOf": [
+    {
+      "not": {
+        "properties": {
+          "decision": { "const": "ALLOW" },
+          "grade": { "const": "BLOCK" }
+        },
+        "required": ["decision", "grade"]
+      }
+    },
+    {
+      "not": {
+        "properties": {
+          "decision": { "const": "BLOCK" },
+          "grade": { "const": "PASS" }
+        },
+        "required": ["decision", "grade"]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "POLICY_EVALUATED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "decision",
+          "grade",
+          "policy_ref",
+          "reason_codes",
+          "marker",
+          "inputs_hash",
+          "evidence_hash"
+        ]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "AGGREGATION_COMPLETED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "decision",
+          "grade",
+          "policy_ref",
+          "reason_codes",
+          "marker",
+          "inputs_hash",
+          "evidence_hash"
+        ]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "FAIL_CLOSED_BLOCKED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "decision",
+          "grade",
+          "policy_ref",
+          "reason_codes",
+          "marker",
+          "inputs_hash",
+          "evidence_hash"
+        ]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "OVERRIDE_APPLIED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "override_op",
+          "override_target",
+          "override_result",
+          "override_hash_safe"
+        ]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "CONSISTENCY_PIPELINE_COMPLETED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "pipeline_name",
+          "pipeline_result",
+          "violations_count",
+          "latency_ms"
+        ]
+      }
+    },
+
+    {
+      "if": {
+        "properties": { "event": { "const": "EVIDENCE_EMITTED" } },
+        "required": ["event"]
+      },
+      "then": {
+        "required": [
+          "trace_id",
+          "inputs_hash",
+          "evidence_hash"
+        ]
+      }
+    }
+  ]
+}
