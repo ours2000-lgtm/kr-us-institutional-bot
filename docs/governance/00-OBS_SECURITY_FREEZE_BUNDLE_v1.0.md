@@ -1,0 +1,15 @@
+# OBS+SECURITY FREEZE BUNDLE v1.0
+
+status: FREEZE
+semver: v1.0.0
+locked_at: 2026-03-02 KST
+
+## Scope
+
+- INCIDENT_CLASSIFICATION_MATRIX_v1.0
+- GOV_HEALTH_MODEL_v1.0
+- KIWOOM_PASSWORD_POLICY_v1.0
+
+## Meaning
+
+관측(Incident→Health) + 보안(PASSWORD POLICY) 축을 동시에 동결.
