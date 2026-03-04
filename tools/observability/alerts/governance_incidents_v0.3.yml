@@ -1,0 +1,86 @@
+groups:
+  - name: governance_incidents_v0.3
+    rules:
+      - alert: ChainValidationFail
+        expr: chain_validation_fail_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: governance
+          service: kr_us_bot
+          component: chain
+          incident_key: INCIDENT_CHAIN_VALIDATION_FAIL
+          runbook: docs/runbooks/CHAIN_VALIDATION_FAIL.md
+        annotations:
+          summary: "Chain validation failed (fail-closed path likely active)"
+          description: "chain_validation_fail_total > 0"
+
+      - alert: ControlPlaneGateBlock
+        expr: control_plane_gate_block_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: governance
+          service: kr_us_bot
+          component: gate
+          incident_key: INCIDENT_GATE_DECISION_BLOCK
+          runbook: docs/runbooks/GATE_BLOCK.md
+        annotations:
+          summary: "Control plane gate BLOCK triggered"
+          description: "control_plane_gate_block_total > 0"
+
+      - alert: GovernanceHealthRed
+        expr: governance_health_status{status="RED"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          team: governance
+          service: kr_us_bot
+          component: health
+          incident_key: INCIDENT_GOV_HEALTH_RED
+          runbook: docs/runbooks/GOV_HEALTH_RED.md
+        annotations:
+          summary: "Governance health is RED"
+          description: "governance_health_status{status=\"RED\"} == 1"
+
+      - alert: GovernanceHealthAmber
+        expr: governance_health_status{status="AMBER"} == 1
+        for: 3m
+        labels:
+          severity: warning
+          team: governance
+          service: kr_us_bot
+          component: health
+          incident_key: INCIDENT_GOV_HEALTH_AMBER
+          runbook: docs/runbooks/GOV_HEALTH_AMBER.md
+        annotations:
+          summary: "Governance health is AMBER"
+          description: "governance_health_status{status=\"AMBER\"} == 1"
+
+      - alert: RuntimeSchemaViolation
+        expr: runtime_schema_violation_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: runtime
+          service: kr_us_bot
+          component: runtime
+          incident_key: INCIDENT_RUNTIME_SCHEMA_VIOLATION
+          runbook: docs/runbooks/RUNTIME_SCHEMA_VIOLATION.md
+        annotations:
+          summary: "Runtime event schema violation detected"
+          description: "runtime_schema_violation_total > 0"
+
+      - alert: PolicyFreezeSuggested
+        expr: policy_feature_freeze_suggested == 1
+        for: 5m
+        labels:
+          severity: warning
+          team: governance
+          service: kr_us_bot
+          component: policy
+          incident_key: INCIDENT_POLICY_FREEZE_SUGGESTED
+          runbook: docs/runbooks/POLICY_FREEZE_SUGGESTED.md
+        annotations:
+          summary: "Policy suggests feature freeze"
+          description: "policy_feature_freeze_suggested == 1"
