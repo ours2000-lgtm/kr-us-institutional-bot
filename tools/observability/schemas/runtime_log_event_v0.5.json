@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RuntimeLogEventV05",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ts_utc",
+    "level",
+    "event_type",
+    "emitter_id",
+    "message",
+    "trace_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "runtime_log_event_v0.5"
+    },
+    "ts_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "emitter_id": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["ALLOW", "BLOCK"]
+    },
+    "grade": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "FAIL"]
+    },
+    "policy_ref": {
+      "type": "string"
+    },
+    "payload": {
+      "type": ["object", "null"]
+    }
+  },
+  "additionalProperties": true
+}
