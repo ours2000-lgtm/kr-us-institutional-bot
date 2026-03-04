@@ -1,13 +1,11 @@
-# RUNTIME_SCHEMA_VIOLATION
+# Runtime Schema Violation
 
-## Incident
-INCIDENT_RUNTIME_SCHEMA_VIOLATION
+Severity: P2
 
-## Description
-Runtime log schema violation detected.
+Description
+Runtime log event schema mismatch detected.
 
-## Immediate Action
-Inspect runtime event emitter and schema contract.
-
-## Recovery
-Correct emitter output and validate schema compliance.
+Immediate Action
+1. Inspect runtime logs
+2. verify schema_version
+3. restart runtime emitter if necessary

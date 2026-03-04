@@ -1,13 +1,6 @@
-# GOV_HEALTH_RED
+# Governance Health RED
 
-## Incident
-INCIDENT_GOV_HEALTH_RED
+Severity: P1
 
-## Description
-Governance health score dropped to RED.
-
-## Immediate Action
-Investigate failing governance checks.
-
-## Recovery
-Restore health score to GREEN and verify system integrity.
+Description
+Governance health critical state detected.

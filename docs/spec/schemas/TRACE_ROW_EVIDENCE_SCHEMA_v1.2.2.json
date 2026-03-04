@@ -1,0 +1,370 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "TRACE_ROW_EVIDENCE_SCHEMA_v1.2.2",
+  "title": "TRACE_ROW_EVIDENCE_SCHEMA_v1.2.2",
+  "type": "object",
+  "additionalProperties": true,
+
+  "description": "Canonical evidence schema for TRACE_ROW governance runtime. Evidence Reader MUST be schema_version-aware and MUST gracefully handle unknown fields and unknown schema_version (fallback to last compatible interpretation).",
+
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "registry_snapshot_id",
+    "policy_profile_id",
+    "threshold_profile_id",
+    "escalation_profile_id",
+    "evaluation_mode",
+    "risk_score",
+    "risk_level",
+    "risk_trust_level",
+    "degraded",
+    "evidence_completeness",
+    "evaluation_timestamp",
+    "evidence_hash"
+  ],
+
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.2.2",
+      "description": "Schema version. Evidence Reader MUST be schema_version-aware."
+    },
+
+    "evaluation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Unique identifier for a single pipeline evaluation. MUST be used only once."
+    },
+
+    "registry_snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Identifier of the registry snapshot used for resolution."
+    },
+
+    "policy_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Active risk policy profile ID used for evaluation."
+    },
+
+    "threshold_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Threshold profile ID (Annex H)."
+    },
+
+    "escalation_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Escalation SLA profile ID (Annex I)."
+    },
+
+    "evaluation_mode": {
+      "type": "string",
+      "enum": ["production", "simulation", "replay", "dry_run"],
+      "description": "Single source of truth for evaluation channel."
+    },
+
+    "risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Risk score normalized to 0..100."
+    },
+
+    "risk_level": {
+      "type": "string",
+      "enum": ["GREEN", "AMBER", "RED", "BLACK"]
+    },
+
+    "risk_trust_level": {
+      "type": "string",
+      "enum": ["reliable", "unreliable"],
+      "description": "Trust signal for risk output. If degraded or uses_fallback, MUST be 'unreliable'."
+    },
+
+    "degraded": {
+      "type": "boolean",
+      "description": "True if runtime is in degraded mode."
+    },
+
+    "uses_fallback": {
+      "type": "boolean",
+      "description": "True if fallback data/profile/interpretation was used."
+    },
+
+    "degradation_reason": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Taxonomy-based reason (string now; may be strengthened to enum via annex later)."
+    },
+
+    "incident_triggered": {
+      "type": "boolean",
+      "description": "True if this evaluation triggered a governance incident (e.g., replay mismatch threshold exceeded, evidence emission failure policy)."
+    },
+
+    "evidence_completeness": {
+      "type": "string",
+      "enum": ["complete", "partial"],
+      "description": "Whether this evidence contains the full expected artifact set."
+    },
+
+    "missing_artifacts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "description": "Only meaningful when evidence_completeness='partial'."
+    },
+
+    "evaluation_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Business evaluation time."
+    },
+
+    "ingest_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Evidence persistence time. Spec-level rule: ingest_timestamp SHOULD be >= evaluation_timestamp."
+    },
+
+    "model_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "rulebook_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Upstream request/trace identifier."
+    },
+
+    "actor_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Caller principal / actor id (human or service)."
+    },
+
+    "channel": {
+      "type": "string",
+      "enum": ["api", "batch", "backfill", "replay"],
+      "description": "Execution channel hint (optional). evaluation_mode is the SSOT."
+    },
+
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Retries with same key MUST NOT create duplicate evidence rows (spec-level rule)."
+    },
+
+    "operation_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Ops audit: evaluation | replay | backfill | override | export_request | policy_update etc."
+    },
+
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Ops audit: environment/domain/service scope label."
+    },
+
+    "justification": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Ops audit justification (policy may require this for high-risk ops like override/replay)."
+    },
+
+    "approvals": {
+      "type": "array",
+      "description": "Optional approval chain for high-risk operations and governance changes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["approver_id", "approval_timestamp"],
+        "properties": {
+          "approver_id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]{1,128}$" },
+          "approval_timestamp": { "type": "string", "format": "date-time" },
+          "approval_record_id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]{1,128}$" },
+          "decision": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "notes": { "type": "string", "maxLength": 2048 }
+        }
+      }
+    },
+
+    "region_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "shard_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+
+    "consistency_model": {
+      "type": "string",
+      "enum": ["strong", "eventual", "shard_local"],
+      "description": "Evidence store consistency model for this record (for distributed/sharded deployments)."
+    },
+
+    "sensitivity_tag": {
+      "type": "string",
+      "enum": ["public", "internal", "restricted", "confidential"],
+      "description": "Sensitivity tag for downstream masking/redaction policies."
+    },
+
+    "redaction_overlay_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "If present, indicates a redaction overlay applies to this evidence (logical redaction without physical deletion)."
+    },
+
+    "triggered_actions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "description": "Actions actually executed."
+    },
+
+    "recommended_actions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "description": "Recommended follow-up actions (not guaranteed executed)."
+    },
+
+    "explainability_bundle_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Pointer to rule_trace/top_contributors bundle in external store."
+    },
+
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Operational/diagnostic metrics snapshot (optional).",
+      "properties": {
+        "lineage_depth": { "type": "integer", "minimum": 0 },
+        "replay_divergence_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "schema_evolution_adoption": { "type": "number", "minimum": 0, "maximum": 1 },
+        "hash_verification_failures": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "evidence_hash": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "SHA-256 hex of canonical JSON."
+    },
+
+    "prev_evidence_hash": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "Previous hash in the linear chain (per stream/channel/partition)."
+    },
+
+    "signature": {
+      "type": "string",
+      "pattern": "^[^.]+\\.[^.]+\\.[^.]+$",
+      "description": "JWS compact serialization (header.payload.signature)."
+    },
+
+    "signatures": {
+      "type": "array",
+      "description": "Multi-sig support: multiple JWS signatures over evidence_hash + key identifiers (implementation-defined).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["signer_id", "signature"],
+        "properties": {
+          "signer_id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]{1,128}$" },
+          "signature": { "type": "string", "pattern": "^[^.]+\\.[^.]+\\.[^.]+$" },
+          "key_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+        }
+      }
+    },
+
+    "simulation_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+    },
+
+    "expected_outcome_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Simulation: reference to expected outcome/test case catalog entry."
+    },
+
+    "simulation_validation_result": {
+      "type": "string",
+      "enum": ["improved", "worse", "neutral", "unknown"],
+      "description": "Simulation: expected vs actual interpretation."
+    },
+
+    "replay_validation_result": {
+      "type": "string",
+      "enum": ["equal", "drift", "mismatch"],
+      "description": "Replay comparison result."
+    },
+
+    "replay_comparison_basis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Replay: what baseline was used (e.g., baseline evaluation_id/hash, model_version, rulebook_version)."
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "evaluation_mode": { "const": "simulation" } }, "required": ["evaluation_mode"] },
+      "then": { "required": ["simulation_run_id"] }
+    },
+    {
+      "if": { "properties": { "evaluation_mode": { "const": "replay" } }, "required": ["evaluation_mode"] },
+      "then": { "required": ["replay_validation_result", "replay_comparison_basis"] }
+    },
+
+    {
+      "if": { "properties": { "degraded": { "const": true } }, "required": ["degraded"] },
+      "then": { "properties": { "risk_trust_level": { "const": "unreliable" } }, "required": ["risk_trust_level"] }
+    },
+    {
+      "if": { "properties": { "uses_fallback": { "const": true } }, "required": ["uses_fallback"] },
+      "then": { "properties": { "risk_trust_level": { "const": "unreliable" } }, "required": ["risk_trust_level"] }
+    },
+
+    {
+      "if": { "properties": { "evidence_completeness": { "const": "partial" } }, "required": ["evidence_completeness"] },
+      "then": { "required": ["missing_artifacts"] }
+    },
+
+    {
+      "if": { "properties": { "evaluation_mode": { "const": "production" } }, "required": ["evaluation_mode"] },
+      "then": {
+        "required": ["ingest_timestamp"],
+        "anyOf": [
+          { "required": ["signature"] },
+          { "required": ["signatures"] }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+# GOVERNANCE_HEADER_SPEC_v1.0
+
+Status: LOCK
+Doc-ID: GOVHDR-SPEC-v1.0
+Doc-Version: v1.0
+Created-At-UTC: 2026-02-12T00:00:00Z
+Last-Updated-UTC: 2026-02-12T00:00:00Z
+Maintainer-ID: UNKNOWN
+Authority-Tier: T3
+Scope: Governance artifacts (Evidence / Trace / Reset / Approval) header standardization
+
+Integrity-Anchors:
+  Document-SHA256: __FILL_ON_LOCK__
+  Signatures:
+    - tier: T3
+      signer_id: __FILL__
+      signature: __FILL__
+      signed_at_utc: __FILL__
+
+Amendment-Governance:
+  Amendment-Allowed: NO (LOCK)
+  Amendment-Procedure: docs/canonical/Amendment_Procedure.md
+  Amendment-Parent-ID: null
+  Amendment-Reason: null
+  Approved-By:
+    - tier: T3
+      actor_id: __FILL__
+      signed_at_utc: __FILL__
+      signature: __FILL__
+
+Status-History:
+  - at_utc: 2026-02-12T00:00:00Z
+    from: DRAFT
+    to: LOCK
+    actor_id: __FILL__
+    note: "Initial LOCK for governance header standard."
+
+----------------------------------------------------------------------
+## 0. Purpose
+This spec defines the REQUIRED header fields and integrity anchors for all governance artifacts.
+Artifacts MUST be machine-parseable and compatible with canonical JSON hashing rules.
+
+----------------------------------------------------------------------
+
+## 1. Artifact Header — Common Fields (REQUIRED)
+
+Every governance artifact MUST contain:
+
+1) artifact_type (string)
+   - Meaning: High-level category for routing / policy checks.
+   - Examples: "GOV_VALIDATION_EVIDENCE", "TRACE_BUNDLE", "RESET_DECLARATION", "APPROVAL_BUNDLE"
+
+2) artifact_version (string)
+   - Meaning: Contract version identifier.
+   - Examples: "EVIDENCE_v1", "TRACE_v1", "RESET_DECLARATION_v1"
+
+3) created_at_utc (string, RFC3339/ISO8601, trailing "Z")
+   - Format: YYYY-MM-DDTHH:MM:SS(.ffffff)?Z
+   - NOTE: Use "Z" timezone. Microseconds are allowed.
+   - Example: "2026-02-12T10:19:31.064273Z"
+
+4) meta (object)
+   REQUIRED keys:
+   - meta.created_at_utc (string): must equal top-level created_at_utc
+   - meta.node_id (string): runtime node identifier (may be "UNKNOWN_NODE" in dev)
+   - meta.git_commit (string): build commit (may be "UNKNOWN_COMMIT" in dev)
+
+5) integrity (object)  **(REQUIRED even if values are null in dev)**
+   REQUIRED keys:
+   - integrity.payload_sha256 (string|null)
+     - SHA256 of canonical JSON payload excluding "integrity" itself.
+   - integrity.prev_chain_hash (string|null)
+     - MUST mirror chain.prev_hash when chain exists.
+   - integrity.signatures (array)
+     - Each item:
+       - tier (string): "T1" | "T2" | "T3"
+       - signer_id (string)
+       - signature (string)
+       - signed_at_utc (string)
+
+6) evidence_binding (object)  **(REQUIRED for Evidence-like artifacts)**
+   REQUIRED keys:
+   - evidence_required (boolean)
+   - evidence_type (string)
+   - evidence_version (string)
+   - schema_set_ref (string|null)
+   - validator_version (string|null)
+
+7) chain (object|null)
+   - For chain-aware artifacts, chain MUST exist.
+   REQUIRED keys when chain exists:
+   - chain.prev_hash (string|null)
+   - chain.this_hash (string)
+
+----------------------------------------------------------------------
+
+## 2. Evidence-Type Enum (LOCKED LIST v1.0)
+
+The following evidence_type values are RESERVED in v1.0:
+
+- GOV_VALIDATION_EVIDENCE
+- TRACE_BUNDLE
+- RESET_DECLARATION
+- APPROVAL_BUNDLE
+
+Rule:
+- New values require Amendment Procedure.
+
+----------------------------------------------------------------------
+
+## 3. Evidence Chain Binding (R1–R4 Binding)
+
+If an artifact declares chain, then:
+
+- chain.this_hash MUST be present.
+- chain.prev_hash MUST be present unless it is a system-first GENESIS.
+
+GENESIS rule:
+- chain.prev_hash MAY be "GENESIS" OR null ONLY for the first genesis declaration in a chain.
+- Any additional GENESIS requires Reset Policy (separate governance).
+
+Binding rule:
+- integrity.prev_chain_hash MUST equal chain.prev_hash (string-equal), or both null for system-first GENESIS.
+
+----------------------------------------------------------------------
+
+## 4. Evidence Writer Minimal Compliance Profile (derived from current runtime evidence)
+
+This section is normative for "GOV_VALIDATION_EVIDENCE" artifacts produced by governance_writer.
+
+A GOV_VALIDATION_EVIDENCE artifact MUST include these top-level keys:
+
+- evidence_type
+- evidence_version
+- created_at_utc
+- meta
+- inputs
+- summary
+- result
+- chain
+
+And MUST satisfy:
+- meta.created_at_utc == created_at_utc
+- inputs.bundle_path (string)
+- inputs.bundle_sha256 (string, 64 hex)
+- chain.prev_hash (string|"GENESIS"|null)
+- chain.this_hash (string, 64 hex)
+- result.schema_set_ref (string)
+- result.validator_version (string)
+
+----------------------------------------------------------------------
+
+## 5. Failure Semantics (Fail-Closed)
+
+If any REQUIRED field is missing or invalid:
+- status MUST be FAIL_CLOSED at the consuming policy layer (HARD or SOFT).
+- the artifact MAY still be persisted for forensics.
+- downstream execution MUST NOT proceed without explicit override procedure.
+
+----------------------------------------------------------------------
+
+## 6. Compatibility Notes (Non-breaking evolution)
+
+Allowed non-breaking additions:
+- Add new OPTIONAL fields inside meta/result/summary/inputs.
+- Add new evidence_binding subfields marked OPTIONAL.
+
+Forbidden without amendment:
+- Renaming required keys
+- Changing meanings of existing enums
+- Changing chain hashing rules
+
+----------------------------------------------------------------------
+
+## 7. Appendix — Example Mapping to Current Evidence (informative)
+
+Observed current evidence:
+- evidence_type: "GOV_VALIDATION_EVIDENCE"
+- evidence_version: "EVIDENCE_v1"
+- created_at_utc: "2026-02-12T10:19:31.064273Z"
+- meta.node_id / meta.git_commit
+- inputs.bundle_path / inputs.bundle_sha256
+- result.schema_set_ref / result.validator_version
+- chain.prev_hash / chain.this_hash

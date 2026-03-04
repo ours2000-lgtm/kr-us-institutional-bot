@@ -1,0 +1,205 @@
+Cold-Execution Governance Engine
+README v1.1 — Conceptual Contract (STABLE)
+Declaration
+
+This system is not a governance body.
+
+It is a Cold-Execution Engine:
+a mechanically enforced system where rules execute without discretion, negotiation, urgency, or human override.
+
+Once deployed, the engine does not decide.
+It executes consequences.
+
+Core Principle
+
+Governance here is not a process.
+It is a state-constrained execution model.
+
+All validity is derived from:
+
+predefined invariants
+
+cryptographically verifiable evidence
+
+deterministic rule evaluation
+
+Trust is never assumed.
+Evidence is mandatory.
+
+Five Axes of Enforcement
+
+The engine enforces governance along five orthogonal axes:
+
+Axis	CE-*	Focus
+Value	CE-R*	Residual margin, safety buffers, invariant thresholds
+Time	CE-P*	Timestamps, lock-out periods, monotonic ordering
+Procedure	CE-O*	Step order, no skipping, no fusion
+Authority	CE-A*	Roles, signatures, non-delegation
+Logic	CE-C*	Global consistency, deadlock, cycle detection
+
+Each CE-* rule declares:
+
+required evidence
+
+evaluation scope
+
+fail-closed behavior
+
+Absence of required evidence is treated as absence of validity.
+
+Phase Protection Matrix
+Phase	Mandatory CE-*	Operational Status	Primary Protection
+Phase 0	CE-R*	Non-binding	Initialization
+Phase 1	CE-R*, CE-P*	Binding (limited)	Replay resistance
+Phase 2	CE-R*, CE-P*, CE-O*, CE-A*	Binding	Procedure enforcement
+Phase 3	CE-R*, CE-P*, CE-O*, CE-A*, CE-C*	Fully constrained	Logical consistency
+
+Phase escalation is monotonic.
+Rollback is constitutionally forbidden.
+
+Evidence-Only Validity
+
+A proposal is valid iff:
+
+Required evidence present
+
+Evidence cryptographically verifiable
+
+Mandatory CE-* rules PASS
+
+No trust, intent, or emergency exception exists.
+
+Fail-Closed Principle
+
+Uncertainty ⇒ ABORT
+Inconsistency ⇒ REJECT
+
+Failures are safety-critical.
+
+Threat Model
+
+Primary assets:
+
+constitutional text
+
+CE rule sets
+
+phase state
+
+authority keys
+
+evidence logs
+
+Everything outside the engine is untrusted input.
+
+Human & System Interface
+
+Interfaces are read-only.
+
+No overrides.
+No bypass.
+No replay.
+
+Verdicts expose:
+
+decision type
+
+violated rules
+
+minimal evidence set
+
+What This Engine Does Not Do
+
+Does not judge outcomes
+
+Does not optimize profit
+
+Does not interpret intent
+
+Does not negotiate
+
+Only invariant preservation is enforced.
+
+📜 Spec Entry Points
+
+The following canonical specifications provide the formal implementation contracts for this conceptual model and position the Cold-Execution Engine within the broader governance stack.
+
+🧩 Governance Baseline → docs/spec/governance/GOVERNANCE_STACK_LOCK_v2.9.md
+
+🔒 Baseline Freeze → docs/spec/governance/BASELINE_FREEZE_DECLARATION_v1.1.md
+
+🗺️ Spec Map → docs/spec/governance/GOVERNANCE_SPEC_MAP_v1.1.md
+
+🏛️ MASTER Architecture → docs/spec/architecture/MASTER_GOVERNANCE_ARCHITECTURE_v1.1.md
+
+🧬 Dependency Graph → docs/spec/SPEC_DEPENDENCY_GRAPH_v1.1.md
+
+📦 Schema Registry → docs/spec/schemas/registry/EVIDENCE_SCHEMA_REGISTRY_DESIGN_v1.md
+
+⚖️ Lifecycle Policy → docs/spec/schemas/registry/EVIDENCE_SCHEMA_LIFECYCLE_POLICY_v1.2.1.md
+
+🧠 Validator Contract → docs/spec/schemas/registry/VALIDATOR_LOADING_CONTRACT_v1.1.md
+
+🧾 Evidence Flow → docs/spec/evidence/EVIDENCE_FLOW_SPEC_v1.1.md
+
+⚙️ Control Plane → docs/spec/architecture/CONTROL_PLANE_ARCHITECTURE_SPEC_v1.2.md
+
+🏛️ System Topology Snapshot
+
+The engine is composed of layered deterministic components:
+
+Constitution Layer — invariants and CE rules
+
+Lifecycle Layer — state transitions
+
+Validation Layer — rule evaluation
+
+Evidence Layer — cryptographic proofs
+
+Control Plane — orchestration
+
+Runtime Plane — execution environment
+
+Each layer is independently verifiable and fail-closed.
+
+⚙️ Execution Model
+
+The engine operates as a deterministic governance loop:
+
+Observe input
+
+Validate evidence
+
+Evaluate CE rules
+
+Determine lifecycle state
+
+Emit decision
+
+Record evidence
+
+Anchor ledger
+
+Reconcile state
+
+All transitions are rule-bound.
+
+Scope & Status
+
+Status: STABLE — Conceptual Contract Locked
+
+This document defines the conceptual model only.
+Implementation details live in formal specifications.
+
+Changes require constitutional amendment.
+
+Appendix & Future Phases
+
+Roadmap material is maintained separately:
+
+docs/governance/APPENDIX_FUTURE_PHASES.md
+
+Appendix does not modify this contract unless formally promoted.
+
+It is not governance by people.
+It is governance by invariants.

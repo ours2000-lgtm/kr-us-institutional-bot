@@ -1,13 +1,6 @@
-# GATE_BLOCK
+# Governance Gate Block
 
-## Incident
-INCIDENT_GATE_DECISION_BLOCK
+Severity: P1
 
-## Description
-Control plane gate issued BLOCK decision.
-
-## Immediate Action
-Inspect gate decision logs and policy evaluation results.
-
-## Recovery
-Resolve policy or validation failure and retry execution.
+Description
+Execution blocked by governance gate.

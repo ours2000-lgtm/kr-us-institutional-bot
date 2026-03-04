@@ -1,0 +1,67 @@
+{
+  "spec_id": "canonicalizer_v1",
+  "spec_version": "1.0",
+  "status": "LOCK",
+  "upgrade_policy": "breaking changes only in v2+",
+  "description": "Canonical JSON normalization rules for record-level hashing (JSONL single-record scope).",
+  "input_scope": "single JSON object record (JSONL one-line unit; no arrays; no multiple root objects)",
+  "notes": [
+    "Input MUST satisfy I-JSON / JCS numeric constraints: no NaN/Infinity, no duplicate keys.",
+    "Unlike RFC 8785 JCS, canonicalizer_v1 requires NFC-normalized input strings."
+  ],
+  "rules": [
+    "Input MUST be a valid JSON object at the root (no arrays).",
+    "Object keys MUST be sorted lexicographically (UTF-8, ascending).",
+    "Whitespace MUST be removed except inside string values.",
+    "Strings MUST be UTF-8 and NFC normalized.",
+    "String escaping MUST follow RFC 8259 standard escapes.",
+    "Numbers MUST follow ECMAScript JSON.stringify minimal form (equivalent to JCS).",
+    "Boolean MUST be lowercase true/false.",
+    "Null MUST be literal null.",
+    "No trailing newline is allowed in canonical output."
+  ],
+  "canonicalization_profile": {
+    "key_sorting": "lexicographic_utf8_asc",
+    "string_normalization": "unicode_nfc",
+    "string_escape": "rfc8259_standard",
+    "number_format": "ecmascript_json_stringify_minimal",
+    "boolean_format": "lowercase",
+    "null_format": "literal_null",
+    "whitespace": "none",
+    "newline": "disallowed"
+  },
+  "hash_binding_rule": {
+    "algorithm": "SHA256",
+    "input": "canonical_string",
+    "output_field": "record_sha256",
+    "output_encoding": "hex_lowercase_64chars"
+  },
+  "examples": [
+    {
+      "example_id": "basic_record",
+      "input_json": { "b": 2, "a": "test", "c": true },
+      "canonical_string": "{\"a\":\"test\",\"b\":2,\"c\":true}",
+      "record_sha256": "sha256(canonical_string)"
+    },
+    {
+      "example_id": "null_nested_object",
+      "input_json": { "z": null, "n": { "b": false, "a": 1 } },
+      "canonical_string": "{\"n\":{\"a\":1,\"b\":false},\"z\":null}",
+      "record_sha256": "sha256(canonical_string)"
+    },
+    {
+      "example_id": "number_normalization_notes",
+      "input_json_examples": [
+        { "x": 1.0 },
+        { "x": 0.000 },
+        { "x": -0.0 }
+      ],
+      "canonical_string_examples": [
+        "{\"x\":1}",
+        "{\"x\":0}",
+        "{\"x\":0}"
+      ],
+      "notes": "Examples show minimal ECMAScript JSON.stringify numeric form."
+    }
+  ]
+}

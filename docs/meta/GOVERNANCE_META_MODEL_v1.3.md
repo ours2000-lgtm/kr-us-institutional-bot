@@ -10,6 +10,23 @@ Layer: META CONSTITUTION
 Classification: CANONICAL
 Last Updated: 2026
 
+------------------------------------------------------------
+
+## CONSTITUTION LOCK DECLARATION
+
+GOVERNANCE_META_MODEL_v1.3 is hereby declared LOCKED as the canonical constitutional baseline of the governance system.
+
+This document establishes the authoritative META governance model defining identity, traceability, lifecycle, cross-layer bindings, and fail-closed invariants.
+
+All subordinate governance artefacts MUST conform to this META constitution.
+
+Any modification MUST follow META change governance procedures with impact assessment, approval, and evidence generation.
+
+LOCK Date: 2026-02-17  
+Authority: Governance Council  
+Status: CANONICAL — LOCKED  
+
+------------------------------------------------------------
 
 1. PURPOSE
 
@@ -17,250 +34,232 @@ The Governance Meta Model defines the foundational constitutional framework gove
 
 This specification establishes the authoritative structure ensuring:
 
-End-to-end traceability
-
-Fail-closed operational integrity
-
-Consistent cross-layer bindings
-
-Auditability and regulatory alignment
-
-Continuous assurance and resilience
+End-to-end traceability  
+Fail-closed operational integrity  
+Consistent cross-layer bindings  
+Auditability and regulatory alignment  
+Continuous assurance and resilience  
 
 All subordinate governance artefacts MUST comply with this model.
 
-2. CORE PRINCIPLES
-2.1 Single Source of Truth
+------------------------------------------------------------
 
+2. CORE PRINCIPLES
+
+2.1 Single Source of Truth  
 The META_MODEL SHALL serve as the authoritative reference for governance structure and invariants.
 
-2.2 Fail-Closed Integrity
+2.2 Fail-Closed Integrity  
+Any violation MUST result in fail-closed behaviour unless explicitly overridden by approved policy.
 
-Any violation of cross-layer bindings or invariants MUST result in fail-closed behaviour unless explicitly overridden by approved policy.
+2.3 Traceability  
+All governance actions MUST be traceable via trace_id.
 
-2.3 Traceability
+2.4 Deterministic Governance  
+Decisions MUST be reproducible based on recorded evidence.
 
-All governance actions MUST be traceable via trace_id across layers.
+2.5 Least Privilege  
+Access MUST follow least privilege principles.
 
-2.4 Deterministic Governance
-
-Governance decisions MUST be reproducible based on recorded evidence and rules.
-
-2.5 Least Privilege
-
-Access to governance artefacts MUST follow least privilege principles.
+------------------------------------------------------------
 
 3. ID & NAMING RULES
-3.1 Canonical Pattern
 
-All IDs MUST follow:
-
+3.1 Canonical Pattern  
 [PREFIX]_[UUID or ULID]
 
-3.2 Prefix Definitions
+3.2 Prefix Definitions  
+SPEC_[UUID][VERSION]  
+CTRL_[UUID]  
+RISK_[UUID]  
+IMPACT_[UUID]  
+LEDGER_[ULID]  
+EVID_[UUID]  
+INC_[UUID]  
+KPI_[UUID]  
 
-SPEC_[UUID][VERSION]
-CTRL[UUID]
-RISK_[UUID]
-IMPACT_[UUID]
-LEDGER_[ULID]
-EVID_[UUID]
-INC_[UUID]
-KPI_[UUID]
+3.3 Character Rules  
+Allowed: A-Z 0-9 _  
+Length SHOULD be 8–64 characters.  
+Temporary IDs prohibited.
 
-3.3 Character Rules
-
-Allowed characters: A-Z 0-9 _
-Length SHOULD be 8–64 characters.
-
-Local temporary IDs are prohibited.
+------------------------------------------------------------
 
 4. META ENTITIES
-4.1 Common Meta Envelope
 
-All entities MUST include:
+4.1 Common Meta Envelope  
 
-created_at_utc
-created_by
-updated_at_utc
-updated_by
-lifecycle_state
-trace_id
-canonical_uri
+created_at_utc  
+created_by  
+updated_at_utc  
+updated_by  
+lifecycle_state  
+trace_id  
+canonical_uri  
 
-4.2 Spec Entity
+4.2 Spec Entity  
 
-Represents governance specifications.
+spec_id  
+version  
+status  
+owner  
+binding_invariants  
 
-Fields:
-spec_id
-version
-status
-owner
-binding_invariants
+4.3 Control Entity  
 
-4.3 Control Entity
+control_id  
+control_owner  
+risk_owner  
+status  
+metrics  
+evidence_requirements  
 
-Defines governance execution primitives.
-
-Fields:
-control_id
-control_owner
-risk_owner
-status
-metrics
-evidence_requirements
-
-4.4 Ledger Entity
+4.4 Ledger Entity  
 
 The ledger MUST provide append-only cryptographic integrity via hash chaining.
 
-Tampering MUST be detectable without trusting any single system.
+4.5 Risk Evaluation Entity  
 
-4.5 Risk Evaluation Entity
+risk_id  
+evaluation_method  
+evaluation_frequency  
+weighting_model_id  
 
-Fields:
+4.6 Impact Tolerance Entity  
 
-risk_id
-evaluation_method ∈ {AUTOMATED, MANUAL, HYBRID}
-evaluation_frequency
-weighting_model_id
+impact_tolerance_id  
+breach_response_level  
+breach_runbook_id  
+breach_escalation_timeline  
 
-4.6 Impact Tolerance Entity
+4.7 Experiment / Simulation Entity  
 
-Fields:
+experiment_id  
+safety_level  
+required_approval_role  
+max_error_budget_consumption  
+rollback_slo  
 
-impact_tolerance_id
-breach_response_level
-breach_runbook_id
-breach_escalation_timeline
+4.8 Incident Entity  
 
-4.7 Experiment / Simulation Entity
-
-Fields:
-
-experiment_id
-safety_level
-required_approval_role
-max_error_budget_consumption
-rollback_slo
-
-4.8 Incident Entity
-
-Fields:
-
-incident_id
-severity
-post_incident_review_id
-follow_up_actions
+incident_id  
+severity  
+post_incident_review_id  
+follow_up_actions  
 
 All major incidents MUST generate PIR artefacts.
 
-4.9 Reporting Entity
+4.9 Reporting Entity  
 
-Fields:
+report_id  
+data_freshness_utc  
+update_frequency_target  
+lineage_refs  
 
-report_id
-data_freshness_utc
-update_frequency_target
-lineage_refs
+KPIs MUST be lineage-traceable.
 
-KPIs MUST be lineage-traceable to evidence sources.
+------------------------------------------------------------
 
 5. GOVERNANCE POLICY LAYER
 
-Governance rules MUST be linked to policy_ref identifiers referencing GOV_POLICY_SPEC.
+Governance rules MUST be linked to policy_ref referencing GOV_POLICY_SPEC.
 
 Policy changes MUST trigger META impact assessment.
 
+------------------------------------------------------------
+
 6. ASSURANCE & CONSISTENCY
-6.1 Cross-Layer Consistency Engine
 
-The system MUST include an automated engine verifying bindings across:
+6.1 Cross-Layer Consistency Engine  
 
-Spec ↔ Control ↔ Evidence ↔ Ledger ↔ Risk ↔ Incident ↔ Reporting
+The system MUST verify bindings across all governance layers.
 
 Violations MUST generate governance evidence.
 
-6.2 Automated Remediation
+6.2 Automated Remediation  
 
-Where feasible, violations SHOULD trigger automated remediation actions.
+Violations SHOULD trigger automated remediation where feasible.
+
+------------------------------------------------------------
 
 7. OPERATIONS & AUTOMATION
-7.1 Governance SLAs
+
+7.1 Governance SLAs  
 
 The framework MUST define SLAs for:
 
-Risk evaluation latency
-Evidence validation
-Report freshness
+Risk evaluation latency  
+Evidence validation  
+Report freshness  
 
-SLA breaches MUST trigger escalation via Impact Tolerance profiles.
+SLA breaches MUST trigger escalation.
 
-7.2 AI Governance
+7.2 AI Governance  
 
-Automated decisions involving HIGH risk MUST require human approval.
+HIGH risk automated decisions MUST require human approval.
 
-AI models MUST register:
+AI models MUST register model metadata.
 
-model_id
-model_version
-model_card_ref
+------------------------------------------------------------
 
 8. REPORTING & ANALYTICS
-8.1 Reporting Consistency
 
-Authoritative reporting pipeline values SHALL prevail in case of conflict.
+8.1 Reporting Consistency  
 
-8.2 Governance Health KPIs
+Authoritative reporting pipeline SHALL prevail.
+
+8.2 Governance Health KPIs  
 
 The system MUST measure:
 
-SLA compliance
-Consistency violation rate
-Remediation success rate
-PIR completion rate
+SLA compliance  
+Consistency violation rate  
+Remediation success rate  
+PIR completion rate  
+
+------------------------------------------------------------
 
 9. LIFECYCLE & CHANGE GOVERNANCE
-9.1 Lifecycle Alignment
 
-Control RETIRED state MUST transition linked artefacts to ARCHIVED unless re-bound.
+9.1 Lifecycle Alignment  
 
-9.2 Change Impact
+Control RETIRED MUST transition linked artefacts to ARCHIVED.
 
-Changes affecting invariants MUST include:
+9.2 Change Impact  
 
-impact_on_meta_model
-migration_plan_ref
-rollback_plan_ref
+Changes MUST include impact assessment, migration plan, rollback.
 
-9.3 Emergency Changes
+9.3 Emergency Changes  
 
-Emergency META changes REQUIRE dual approval and retrospective review.
+Emergency changes REQUIRE dual approval.
+
+------------------------------------------------------------
 
 10. RESILIENCE & RECOVERY
-10.1 Governance Recovery
+
+10.1 Governance Recovery  
 
 Critical components MUST define recovery RTO/RPO.
 
-10.2 Degraded Mode
+10.2 Degraded Mode  
 
-When governance engines fail:
+Governance failures MAY block promotion and enforce read-only mode.
 
-Promotion MAY be blocked
-System MAY enter read-only mode
+Manual overrides MUST generate evidence.
 
-Manual override MUST generate evidence.
+------------------------------------------------------------
 
 11. INTEROPERABILITY & EXTERNAL INTEGRATION
 
-The framework SHOULD expose canonical APIs for governance entities.
+The framework SHOULD expose canonical APIs.
 
-External systems MUST interact via canonical schemas.
+------------------------------------------------------------
 
 12. GOVERNANCE HEALTH MODEL
 
-The governance system MUST continuously assess its own operational health using defined KPIs and benchmarks.
+The governance system MUST continuously assess its own health using KPIs.
+
+------------------------------------------------------------
 
 🔒 INVARIANT
 
