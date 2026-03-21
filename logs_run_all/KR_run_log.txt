@@ -1,0 +1,91 @@
+
+
+=====================================================
+[2025-12-04 16:22:42.446575] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:22:44.482094] KR 엔진 비정상 종료 → 재시작 1
+
+
+=====================================================
+[2025-12-04 16:22:49.486612] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:22:54.506092] KR 엔진 비정상 종료 → 재시작 2
+
+
+=====================================================
+[2025-12-04 16:22:59.520328] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:04.532491] KR 엔진 비정상 종료 → 재시작 3
+
+
+=====================================================
+[2025-12-04 16:23:09.541389] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:14.560869] KR 엔진 비정상 종료 → 재시작 4
+
+
+=====================================================
+[2025-12-04 16:23:19.572371] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:24.581876] KR 엔진 비정상 종료 → 재시작 5
+
+
+=====================================================
+[2025-12-04 16:23:29.592380] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:34.600889] KR 엔진 비정상 종료 → 재시작 6
+[2025-12-04 16:23:34.600889] 재시작 한도 초과 → KR 엔진 중단
+
+[2025-12-04 16:24:27.722800] KR 엔진 비정상 종료 → 재시작 1
+
+
+=====================================================
+[2025-12-04 16:24:32.734302] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:24:37.749793] KR 엔진 비정상 종료 → 재시작 2
+
+
+=====================================================
+[2025-12-04 16:24:42.751320] KR 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_korea_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:24:47.762822] KR 엔진 비정상 종료 → 재시작 3

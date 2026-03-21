@@ -1,0 +1,52 @@
+{
+  "evidence_type": "GOV_VALIDATION_EVIDENCE",
+  "evidence_version": "EVIDENCE_v1",
+  "created_at_utc": "2026-02-12T07:46:20.063859Z",
+  "meta": {
+    "created_at_utc": "2026-02-12T07:46:20.063859Z",
+    "node_id": "UNKNOWN_NODE",
+    "git_commit": "UNKNOWN_COMMIT"
+  },
+  "inputs": {
+    "bundle_path": "E:/KR_US_INSTITUTIONAL_BOT/runtime/governance/traces/trace_20260212T074620008008Z_b78b04592c9b433ea0655fdef358ae7d.json",
+    "bundle_sha256": "62a25a3f6b845b9456f31abc8e978e03a8189f441a57eb9f2290d5ed6419c35b"
+  },
+  "summary": {
+    "decision": "FAIL_CLOSED",
+    "fail_closed": true,
+    "failed_stage": "SCHEMA",
+    "violations_count": 1
+  },
+  "result": {
+    "decision": "FAIL_CLOSED",
+    "fail_closed": true,
+    "failed_stage": "SCHEMA",
+    "violations": [
+      {
+        "code": "L1_MISSING_CORE_FIELDS",
+        "severity": "CRITICAL",
+        "message": "record missing required core fields: ['event_type', 'ts_utc']",
+        "rule_id": "GSR-010",
+        "evidence_id": null,
+        "refs": {},
+        "context": {
+          "record_index": 0,
+          "missing": [
+            "event_type",
+            "ts_utc"
+          ],
+          "event_type": null
+        }
+      }
+    ],
+    "schema_set_ref": "docs/schemas/v1",
+    "semantic_ruleset_version": null,
+    "canonicalizer_profile_version": null,
+    "cryptographic_policy_version": null,
+    "validator_version": "v0.1"
+  },
+  "chain": {
+    "prev_hash": "GENESIS",
+    "this_hash": "e18fe0b2734e16679029b6d9180137e70d2c5c9fd186a253dfee93e02d973412"
+  }
+}

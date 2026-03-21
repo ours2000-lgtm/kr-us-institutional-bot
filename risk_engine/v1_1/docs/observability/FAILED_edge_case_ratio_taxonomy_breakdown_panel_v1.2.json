@@ -1,0 +1,44 @@
+{
+  "id": 2,
+  "type": "timeseries",
+  "title": "FAILED edge_case ratio — taxonomy breakdown (15m window)",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS_DS_UID"
+  },
+  "fieldConfig": {
+    "defaults": {
+      "unit": "percentunit",
+      "max": 0.1,
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green",  "value": null },
+          { "color": "yellow", "value": 0.001 },
+          { "color": "orange", "value": 0.01 },
+          { "color": "red",    "value": 0.03 }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "options": {
+    "tooltip": {
+      "mode": "all"
+    },
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    }
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum by (reason_category) (increase(terminal_total{terminal_state=\"FAILED\",edge_case=\"true\"}[15m])) / clamp_min(sum(increase(terminal_total{terminal_state=\"FAILED\"}[15m])), 1)",
+      "legendFormat": "{{reason_category}} — 15m window"
+    }
+  ],
+  "stacking": {
+    "mode": "percent"
+  }
+}

@@ -1,0 +1,18 @@
+alert: INCIDENT_GATE_BLOCK
+
+incident_key: INCIDENT_GATE_BLOCK
+severity: critical
+
+description: |
+  Governance Gate blocked runtime execution.
+
+runbook: docs/runbooks/INCIDENT_GATE_BLOCK.md
+
+labels:
+  team: trading-runtime
+  service: kr_us_bot
+  category: governance
+
+annotations:
+  summary: Governance gate blocked execution
+  action: Investigate policy_ref and governance decision logs

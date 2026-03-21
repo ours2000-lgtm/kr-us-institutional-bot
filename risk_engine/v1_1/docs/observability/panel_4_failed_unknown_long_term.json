@@ -1,0 +1,63 @@
+{
+  "id": 4,
+  "type": "timeseries",
+  "title": "FAILED.UNKNOWN — Long-term trend (24h rolling / 7d avg)",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS_DS_UID"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) / clamp_min(sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h])), 1)",
+      "legendFormat": "UNKNOWN ratio — 24h rolling",
+      "interval": "",
+      "intervalFactor": 1
+    },
+    {
+      "refId": "B",
+      "expr": "avg_over_time((sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) / clamp_min(sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h])), 1))[7d:1d])",
+      "legendFormat": "UNKNOWN ratio — 7d moving avg",
+      "interval": "",
+      "intervalFactor": 1
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": "percentunit",
+      "min": 0,
+      "custom": {
+        "drawStyle": "line",
+        "lineInterpolation": "smooth",
+        "lineWidth": 2,
+        "fillOpacity": 15,
+        "showPoints": "never"
+      },
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 0.001 },
+          { "color": "orange", "value": 0.01 },
+          { "color": "red", "value": 0.03 }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "all"
+    }
+  },
+  "gridPos": {
+    "h": 10,
+    "w": 24,
+    "x": 0,
+    "y": 18
+  }
+}

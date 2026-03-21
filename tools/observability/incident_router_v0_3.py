@@ -1,78 +1,59 @@
 from __future__ import annotations
 
-import logging
-import subprocess
-from typing import Dict, Any, Set
+from typing import Dict, Any
 
-from tools.observability.incident_keys_v0_3 import (
-    INCIDENT_GATE_BLOCK,
-    INCIDENT_RUNTIME_ERROR,
-    INCIDENT_GOV_HEALTH_RED,
+from tools.observability.incident_to_alert_mapping_v0_3 import (
+    map_incident_to_alert,
 )
 
-logger = logging.getLogger(__name__)
+from tools.telegram_notify import send_telegram_message
+
 
 # ---------------------------------------------------------
-# SSOT: Immediate notification incidents
+# Alert 대상 incident
 # ---------------------------------------------------------
 
-IMMEDIATE_NOTIFY_INCIDENT_KEYS_V0_3: Set[str] = {
-    INCIDENT_GATE_BLOCK,
-    INCIDENT_RUNTIME_ERROR,
-    INCIDENT_GOV_HEALTH_RED,
+ALERT_INCIDENTS = {
+    "INCIDENT_GATE_BLOCK",
+    "INCIDENT_RUNTIME_ERROR",
+    "INCIDENT_GOV_HEALTH_RED",
 }
 
-# ---------------------------------------------------------
-# Telegram notifier
-# ---------------------------------------------------------
-
-def _send_telegram(message: str) -> None:
-    """
-    Calls existing telegram_notify.py script.
-    """
-
-    try:
-        subprocess.run(
-            ["python", "telegram_notify.py", message],
-            check=False,
-        )
-    except Exception as e:
-        logger.error("telegram_notify_failed", extra={"error": str(e)})
-
-
-# ---------------------------------------------------------
-# Router
-# ---------------------------------------------------------
 
 def route_incident_event_v0_3(incident_event: Dict[str, Any]) -> None:
     """
-    Route incident event.
+    Route incident to alert / log.
 
-    Always:
-        - log incident
-
-    Conditional:
-        - send telegram notification
+    incident_event schema:
+        incident_event_v0.3
     """
 
     incident_key = incident_event.get("incident_key")
 
-    # always log
-    logger.error(
-        "incident_event",
-        extra={
-            "incident_key": incident_key,
-            "incident_event": incident_event,
-        },
+    if not incident_key:
+        return
+
+    # alert metadata
+    meta = map_incident_to_alert(incident_key)
+
+    alert_name = meta.get("alert_name")
+    severity = meta.get("severity")
+    runbook = meta.get("runbook")
+
+    # message
+    msg = (
+        f"[{severity.upper()}] {alert_name}\n"
+        f"incident: {incident_key}\n"
+        f"runbook: {runbook}"
     )
 
-    # conditional notification
-    if incident_key in IMMEDIATE_NOTIFY_INCIDENT_KEYS_V0_3:
+    # -----------------------------------------------------
+    # Immediate alert
+    # -----------------------------------------------------
 
-        message = (
-            f"[INCIDENT ALERT]\n"
-            f"incident_key: {incident_key}\n"
-            f"event: {incident_event}"
-        )
+    if incident_key in ALERT_INCIDENTS:
+        send_telegram_message(msg)
 
-        _send_telegram(message)
+    # -----------------------------------------------------
+    # logging (future extension)
+    # -----------------------------------------------------

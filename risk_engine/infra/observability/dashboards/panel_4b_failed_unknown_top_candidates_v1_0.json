@@ -1,0 +1,45 @@
+{
+  "id": null,
+  "type": "timeseries",
+  "title": "Panel 4-B — FAILED.UNKNOWN top candidates (24h)",
+  "description": "Breakdown of FAILED.UNKNOWN events by candidate reason codes (24h). Exploratory panel for taxonomy refinement and backlog triage. No thresholds, no alerts — evidence only. Independent from AlertRules and governance-frozen baseline.",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "topk(10, sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\", reason_code=\"FAILED.UNKNOWN\"}[24h])))",
+      "legendFormat": "{{reason_code}}"
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": "short",
+      "custom": {
+        "drawStyle": "bars",
+        "stacking": {
+          "mode": "none"
+        },
+        "fillOpacity": 70,
+        "lineWidth": 1
+      }
+    }
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "single"
+    }
+  },
+  "gridPos": {
+    "h": 10,
+    "w": 24,
+    "x": 0,
+    "y": 0
+  }
+}

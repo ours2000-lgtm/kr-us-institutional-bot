@@ -1,0 +1,92 @@
+{
+  "id": null,
+  "type": "timeseries",
+  "title": "Taxonomy Health Summary — FAILED breakdown",
+  "description": "High-level taxonomy health overview. Independent from AlertRules. Shows the proportion of FAILED events classified as UNKNOWN / EDGE_CASE / KNOWN over the selected time range. Goal: KNOWN dominates, UNKNOWN remains small, EDGE_CASE acts as a controlled absorber.",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h]))",
+      "legendFormat": "UNKNOWN"
+    },
+    {
+      "refId": "B",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=~\"FAILED.EDGE_.*\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h]))",
+      "legendFormat": "EDGE_CASE"
+    },
+    {
+      "refId": "C",
+      "expr": "1 - ((sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) + sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=~\"FAILED.EDGE_.*\"}[24h]))) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h])))",
+      "legendFormat": "KNOWN"
+    },
+    {
+      "refId": "D",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h]))",
+      "legendFormat": "FAILED total"
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": "percentunit",
+      "custom": {
+        "drawStyle": "bars",
+        "stacking": {
+          "mode": "percent",
+          "group": "taxonomy"
+        },
+        "fillOpacity": 80
+      }
+    },
+    "overrides": [
+      {
+        "matcher": { "id": "byName", "options": "UNKNOWN" },
+        "properties": [
+          { "id": "color", "value": { "mode": "fixed", "fixedColor": "#D32F2F" } }
+        ]
+      },
+      {
+        "matcher": { "id": "byName", "options": "EDGE_CASE" },
+        "properties": [
+          { "id": "color", "value": { "mode": "fixed", "fixedColor": "#F57C00" } }
+        ]
+      },
+      {
+        "matcher": { "id": "byName", "options": "KNOWN" },
+        "properties": [
+          { "id": "color", "value": { "mode": "fixed", "fixedColor": "#388E3C" } }
+        ]
+      },
+      {
+        "matcher": { "id": "byName", "options": "FAILED total" },
+        "properties": [
+          { "id": "unit", "value": "short" },
+          { "id": "custom.axisPlacement", "value": "right" },
+          { "id": "custom.drawStyle", "value": "line" },
+          { "id": "custom.lineWidth", "value": 1 },
+          { "id": "custom.fillOpacity", "value": 0 },
+          { "id": "color", "value": { "mode": "fixed", "fixedColor": "#607D8B" } }
+        ]
+      }
+    ]
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "all",
+      "valueAndPercent": true
+    }
+  },
+  "gridPos": {
+    "h": 12,
+    "w": 24,
+    "x": 0,
+    "y": 0
+  }
+}

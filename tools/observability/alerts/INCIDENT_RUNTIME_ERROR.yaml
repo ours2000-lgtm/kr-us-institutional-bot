@@ -1,0 +1,18 @@
+alert: INCIDENT_RUNTIME_ERROR
+
+incident_key: INCIDENT_RUNTIME_ERROR
+severity: critical
+
+description: |
+  Runtime execution error detected.
+
+runbook: docs/runbooks/INCIDENT_RUNTIME_ERROR.md
+
+labels:
+  team: trading-runtime
+  service: kr_us_bot
+  category: runtime
+
+annotations:
+  summary: Runtime error in trading engine
+  action: Inspect runtime logs and error trace

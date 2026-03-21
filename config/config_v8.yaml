@@ -1,0 +1,176 @@
+# ============================================================
+#  V8 PLUS CONFIG (통합 설정 A안)
+#  - 한국/미국 공통
+#  - +2.5% / -0.7% 손익 기준
+#  - 장 시작 10분 전 자동 운용 기준
+# ============================================================
+
+SYSTEM:
+  timezone: "Asia/Seoul"
+  log_level: "INFO"
+  mode: "LIVE"             # LIVE / PAPER / SIM / MOCK
+  auto_restart: true       # 자동 재시작 사용
+  max_positions: 3
+
+# ------------------------------------------------------------
+# API / 계정 정보  (값은 직접 채워 넣기)
+# ------------------------------------------------------------
+API:
+  alpaca:
+    key: ""
+    secret: ""
+    paper: true            # PAPER 계좌면 true, 실계좌면 false
+  kiwoom:
+    user_id: ""
+    account: ""
+  telegram:
+    token: ""
+    chat_id: ""
+
+# ------------------------------------------------------------
+# 공통 리스크 관리 (KR/US 공통 기본값)
+# ------------------------------------------------------------
+RISK:
+  take_profit_percent: 2.5       # +2.5% 익절
+  stop_loss_percent: -0.7        # -0.7% 손절
+  max_loss_per_symbol: -0.01     # 한 종목 최대 손실 -1.0%
+  max_portfolio_loss: -0.03      # 계좌 전체 -3% 도달 시 중지
+  max_holding_minutes: 120       # 최대 보유 시간(분)
+  cooldown_after_exit_seconds: 180
+  slippage_percent: 0.05
+  rebuy_block_minutes: 10
+
+# ------------------------------------------------------------
+# 시장 구조 (ORB / AVWAP / MTF)
+# ------------------------------------------------------------
+STRUCTURE:
+  use_orb: true
+  orb_window:
+    KR: ["09:00:00", "09:30:00"]
+    US: ["23:30:00", "00:00:00"]
+
+  use_avwap: true
+  avwap_source: "OPEN"       # "OPEN" / "PREV_HIGH" / "PREV_LOW"
+
+  use_mtf: true
+  mtf_timeframes:
+    - "1m"
+    - "5m"
+    - "15m"
+    - "30m"
+
+# ------------------------------------------------------------
+# Orderflow / 유동성 필터
+# ------------------------------------------------------------
+ORDERFLOW:
+  enabled: true
+  min_buy_pressure: 1.15       # 매수 압력 최소값
+  min_liquidity_score: 0.70    # 유동성 품질 컷
+  allow_spread_ratio: 0.004    # 0.4% 이상 스프레드는 경고
+
+# ------------------------------------------------------------
+# ML Quality Gate (가짜 돌파 / 저유동성 제거)
+# ------------------------------------------------------------
+ML:
+  enabled: true
+  min_quality_score: 1.2       # ml_gate_v8.py 에서 total < 1.2면 컷
+  lookback_patterns: 30
+  max_pattern_buffer: 300
+
+# ------------------------------------------------------------
+# 한국 시장 고유 설정
+# ------------------------------------------------------------
+KR:
+  market: "KR"
+  engine_profile: "KR_OPEN10_V8_PLUS"
+
+  # 운용 시간 (KST 기준)
+  session:
+    start: "08:50:00"          # 장 시작 10분 전부터 준비/운용
+    end:   "15:20:00"
+    force_exit: "15:10:00"     # 강제 청산 시간
+
+  universe:
+    symbol_universe_size: 150
+    index_symbols: ["KOSPI", "KOSDAQ"]
+
+  filters:
+    volume_min: 150000         # 최소 거래량
+    value_min: 500000000       # 최소 거래대금
+    min_gap_percent: -2.0
+    max_gap_percent: 4.0
+    min_prevolume: 50000
+
+  # 초기 변동성 / ORB 윈도우
+  windows:
+    entry_window: ["09:00:00", "10:00:00"]
+    initial_volatility_window: ["09:00:00", "10:00:00"]
+
+  # 리스크 (한국 전용 커스텀 있을 경우)
+  risk:
+    take_profit_percent: 2.5
+    stop_loss_percent: -0.7
+    max_positions: 3
+
+# ------------------------------------------------------------
+# 미국 시장 고유 설정
+# ------------------------------------------------------------
+US:
+  market: "US"
+  engine_profile: "US_OPEN10_V8_PLUS"
+
+  # 운용 시간 (KST 기준)
+  session:
+    start: "23:20:00"          # 23:30 정규장 10분 전
+    end:   "06:00:00"
+    force_exit: "05:50:00"
+
+  universe:
+    symbol_universe_size: 300
+    index_symbols: ["SPY", "QQQ", "NQ"]
+
+  filters:
+    volume_min: 200000
+    value_min: 1000000000
+    min_gap_percent: -3.0
+    max_gap_percent: 6.0
+    min_prevolume: 100000
+
+  windows:
+    entry_window: ["23:30:00", "01:00:00"]
+    initial_volatility_window: ["23:30:00", "00:30:00"]
+
+  risk:
+    take_profit_percent: 2.5
+    stop_loss_percent: -0.7
+    max_positions: 3
+
+# ------------------------------------------------------------
+# 스케줄러 / run_all_v8_plus.py 참고용 메타 정보
+# ------------------------------------------------------------
+SCHEDULE:
+  KR:
+    start: "08:50"
+    stop:  "15:25"
+  US:
+    start: "23:20"
+    stop:  "06:10"
+  ALL:
+    start: "08:50"
+    stop:  "06:10"
+
+# ------------------------------------------------------------
+# 경로 (run_korea_v8_plus.py, run_us_v8_plus.py, run_all_v8_plus.py 참고)
+# ------------------------------------------------------------
+PATHS:
+  base_dir: "E:/KR_US_INSTITUTIONAL_BOT"
+  core_dir: "E:/KR_US_INSTITUTIONAL_BOT/v8_core"
+  log_dir: "E:/KR_US_INSTITUTIONAL_BOT/logs_v8"
+  backup_dir: "E:/KR_US_INSTITUTIONAL_BOT/backup_v8"
+
+  python_exe: "C:/Users/DESKTOP/AppData/Local/Programs/Python/Python310/python.exe"
+
+  scripts:
+    run_korea: "E:/KR_US_INSTITUTIONAL_BOT/v8_core/run_korea_v8_plus.py"
+    run_us:    "E:/KR_US_INSTITUTIONAL_BOT/v8_core/run_us_v8_plus.py"
+    run_all:   "E:/KR_US_INSTITUTIONAL_BOT/v8_core/run_all_v8_plus.py"

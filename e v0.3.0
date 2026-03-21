@@ -1,0 +1,19 @@
+[33mtag v0.3.0[m
+Tagger: Donghyuk Hong <donghyuk@example.com>
+Date:   Wed Mar 4 12:38:01 2026 +0900
+
+FREEZE: Governance Observability Bundle v0.3.0
+
+[33mcommit bfd26b151af2515462b49ef2f002d20e9117a475[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mv0.3[m[33m, [m[1;33mtag: [m[1;33mv0.3.0[m[33m, [m[1;33mtag: [m[1;33mgovernance-v0.3[m[33m, [m[1;31morigin/v0.3[m[33m)[m
+Author: Donghyuk Hong <donghyuk@example.com>
+Date:   Wed Mar 4 10:33:04 2026 +0900
+
+    [v0.3][runbooks] Add governance incident runbook stubs
+
+ docs/runbooks/CHAIN_VALIDATION_FAIL.md    | 13 [32m+++++++++++++[m
+ docs/runbooks/GATE_BLOCK.md               | 13 [32m+++++++++++++[m
+ docs/runbooks/GOV_HEALTH_AMBER.md         | 13 [32m+++++++++++++[m
+ docs/runbooks/GOV_HEALTH_RED.md           | 13 [32m+++++++++++++[m
+ docs/runbooks/POLICY_FREEZE_SUGGESTED.md  | 13 [32m+++++++++++++[m
+ docs/runbooks/RUNTIME_SCHEMA_VIOLATION.md | 13 [32m+++++++++++++[m
+ 6 files changed, 78 insertions(+)

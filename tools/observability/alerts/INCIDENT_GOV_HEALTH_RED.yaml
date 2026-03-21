@@ -1,0 +1,18 @@
+alert: INCIDENT_GOV_HEALTH_RED
+
+incident_key: INCIDENT_GOV_HEALTH_RED
+severity: critical
+
+description: |
+  Governance health model entered RED state.
+
+runbook: docs/runbooks/INCIDENT_GOV_HEALTH_RED.md
+
+labels:
+  team: governance
+  service: kr_us_bot
+  category: governance-health
+
+annotations:
+  summary: Governance health RED
+  action: Check governance evaluator and incident history

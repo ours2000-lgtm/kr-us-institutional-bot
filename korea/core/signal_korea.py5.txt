@@ -1,0 +1,132 @@
+# ================================================================
+#  signal_korea.py (V5 — Adaptive + HFT Scoring)
+#  - 체결강도 / 거래대금 / 모멘텀 / VWAP / 레짐 기반 고급 필터
+#  - Adaptive Threshold Engine(V5) 완전 통합
+#  - HFT형 미세 모멘텀 추종 + 기관형 스코어링
+# ================================================================
+
+import numpy as np
+from datetime import datetime
+
+from core.adaptive_params import AdaptiveThresholds
+from core.regime_korea import MarketRegime
+
+
+class KoreaSignalEngineV5:
+
+    def __init__(self, logger=None):
+        self.logger = logger
+        self.adaptive = AdaptiveThresholds()
+
+        if self.logger:
+            self.logger.info("[INIT] KoreaSignalEngine V5 초기화 완료")
+
+        # 종목별 최근 스코어 저장 (안정성 판단)
+        self.score_history = {}
+
+    # ----------------------------------------------------------------------
+    # 단일 종목 스코어 계산
+    # ----------------------------------------------------------------------
+    def _score_symbol(self, code, d, regime, th):
+
+        price = d["price"]
+        volume = d["volume"]
+        amount = d["amount"]
+        buy_vol = d["buy_vol"]
+        sell_vol = d["sell_vol"]
+        vwap = (d["high"] + d["low"] + d["open"]) / 3
+
+        # 1) 체결강도
+        if sell_vol == 0:
+            power = 2.0
+        else:
+            power = buy_vol / max(sell_vol, 1)
+
+        # 2) VWAP 이격도
+        vwap_gap = (price - vwap) / vwap * 100
+
+        # 3) 미세 모멘텀 (가격 이동 동력)
+        mom = (price - d["open"]) / d["open"] * 100
+
+        # 4) 거래대금 스케일
+        liq_score = amount / 10_000_000
+
+        # 5) 레짐 기반 보정
+        regime_factor = {
+            MarketRegime.BULL: 1.10,
+            MarketRegime.NORMAL: 1.00,
+            MarketRegime.VOLATILE: 0.90,
+            MarketRegime.BEAR: 0.70,
+            MarketRegime.UNSTABLE: 0.60,
+        }.get(regime, 1.0)
+
+        # -------------------------
+        # HFT형 복합 스코어 계산
+        # -------------------------
+        score = (
+            power * 2.0
+            + vwap_gap * 0.3
+            + mom * 0.4
+            + liq_score * 0.2
+        ) * regime_factor
+
+        # 최소거래량 / 거래대금 필터
+        if volume < th["min_volume"] or amount < th["min_amount"]:
+            score *= 0.4
+
+        # 체결강도 부족 → 감점
+        if power < th["min_power"]:
+            score *= 0.6
+
+        # 음수(역추세)의 경우 약하게 허용
+        if mom < 0:
+            score *= 0.7
+
+        return max(score, 0), power
+
+    # ----------------------------------------------------------------------
+    # 전체 신호 생성
+    # ----------------------------------------------------------------------
+    def generate_signals(self, market_data, regime):
+
+        th = self.adaptive.get()
+        results = []
+
+        for code, d in market_data.items():
+
+            score, power = self._score_symbol(code, d, regime, th)
+
+            # 최소 스코어 미달 → 신호 제외
+            if score < th["min_score"]:
+                continue
+
+            results.append({
+                "code": code,
+                "price": d["price"],
+                "score": score,
+                "power": power,
+                "volume": d["volume"],
+                "amount": d["amount"],
+                "timestamp": d["timestamp"],
+            })
+
+            # 스코어 히스토리 저장
+            self.score_history.setdefault(code, []).append(score)
+            if len(self.score_history[code]) > 30:
+                self.score_history[code] = self.score_history[code][-30:]
+
+        # ----------------------------------------
+        #  최종 랭킹 - 상위 스코어 순으로 정렬
+        # ----------------------------------------
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        if self.logger:
+            if results:
+                top = results[0]
+                self.logger.info(
+                    f"[SIGNAL] 후보 {len(results)}개 발견 (Top={top['code']}, score={top['score']:.2f})"
+                )
+            else:
+                self.logger.info("[SIGNAL] 신호 없음")
+
+        return results

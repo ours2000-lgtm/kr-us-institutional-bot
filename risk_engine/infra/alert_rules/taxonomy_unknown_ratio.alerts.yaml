@@ -1,0 +1,99 @@
+# ======================================================================
+# Alert: taxonomy_unknown_ratio
+#
+# GOVERNANCE-FROZEN RULESET
+#
+# Any change MUST be accompanied by:
+# - explicit version bump (v1_3+)
+# - documented policy review
+# ======================================================================
+
+groups:
+- name: taxonomy.rules
+  rules:
+
+  # --------------------------------------------------
+  # WARNING — sustained UNKNOWN taxonomy signal
+  # --------------------------------------------------
+  - alert: TaxonomyUnknownRatioWarning
+    expr: |
+      (
+        sum(increase(terminal_total{terminal_state="FAILED", reason_code="FAILED.UNKNOWN"}[24h]))
+        /
+        sum(increase(terminal_total{terminal_state="FAILED"}[24h]))
+      ) > 0.01
+      and
+      sum(increase(terminal_total{terminal_state="FAILED"}[24h])) >= 500
+    for: 72h
+    labels:
+      severity: warning
+      category: taxonomy
+      signal: sustained
+      impact: medium
+      team: platform
+      owner: platform
+      escalation: manual
+      tag: promotion_candidate
+    annotations:
+      summary: >
+        FAILED.UNKNOWN ratio {{ $value | printf "%.2f" }} (24h rolling) > 1%
+      description: >
+        Sustained UNKNOWN failure taxonomy with sufficient FAILED volume.
+        This is a policy/taxonomy improvement signal, not an incident.
+      action: "monitor and collect evidence"
+      promotion_hint: >
+        Candidate for taxonomy refinement or new reason_code extraction.
+      runbook: "https://docs.example.com/observability/taxonomy/unknown_ratio"
+      dashboard: "grafana://observability/taxonomy#panelId=4"
+
+  # --------------------------------------------------
+  # CRITICAL — rapid UNKNOWN taxonomy spike
+  # --------------------------------------------------
+  - alert: TaxonomyUnknownRatioSpike
+    expr: |
+      (
+        sum(increase(terminal_total{terminal_state="FAILED", reason_code="FAILED.UNKNOWN"}[24h]))
+        /
+        sum(increase(terminal_total{terminal_state="FAILED"}[24h]))
+      ) > 0.03
+    for: 6h
+    labels:
+      severity: critical
+      category: taxonomy
+      signal: spike
+      impact: high
+      team: sre
+      owner: sre
+      escalation: auto
+    annotations:
+      summary: >
+        FAILED.UNKNOWN ratio {{ $value | printf "%.2f" }} (24h rolling) > 3%
+      action: "open incident and escalate"
+      runbook: "https://docs.example.com/observability/taxonomy/unknown_ratio"
+      dashboard: "grafana://observability/taxonomy#panelId=4"
+
+  # --------------------------------------------------
+  # HARD ANOMALY — systemic taxonomy failure
+  # --------------------------------------------------
+  - alert: TaxonomyUnknownRatioHardAnomaly
+    expr: |
+      (
+        sum(increase(terminal_total{terminal_state="FAILED", reason_code="FAILED.UNKNOWN"}[24h]))
+        /
+        sum(increase(terminal_total{terminal_state="FAILED"}[24h]))
+      ) > 0.05
+    for: 1h
+    labels:
+      severity: critical
+      category: taxonomy
+      signal: anomaly
+      impact: severe
+      team: sre
+      owner: sre
+      escalation: immediate
+    annotations:
+      summary: >
+        FAILED.UNKNOWN ratio {{ $value | printf "%.2f" }} (24h rolling) > 5%
+      action: "page on-call immediately"
+      runbook: "https://docs.example.com/observability/taxonomy/unknown_ratio"
+      dashboard: "grafana://observability/taxonomy#panelId=4"

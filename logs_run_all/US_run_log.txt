@@ -1,0 +1,67 @@
+
+
+=====================================================
+[2025-12-04 16:22:43.470816] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:34.601887] US 엔진 비정상 종료 → 재시작 1
+
+
+=====================================================
+[2025-12-04 16:23:39.609398] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:44.631870] US 엔진 비정상 종료 → 재시작 2
+
+
+=====================================================
+[2025-12-04 16:23:49.633398] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:23:54.653875] US 엔진 비정상 종료 → 재시작 3
+
+
+=====================================================
+[2025-12-04 16:23:59.655402] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:24:04.677874] US 엔진 비정상 종료 → 재시작 4
+
+
+=====================================================
+[2025-12-04 16:24:09.686383] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:24:14.695890] US 엔진 비정상 종료 → 재시작 5
+
+
+=====================================================
+[2025-12-04 16:24:19.702404] US 엔진 실행 시작
+=====================================================
+Traceback (most recent call last):
+  File "E:\KR_US_INSTITUTIONAL_BOT\run_us_v9_plus.py", line 25, in <module>
+    from signal_engine_v9 import SignalEngineV9
+ModuleNotFoundError: No module named 'signal_engine_v9'
+
+[2025-12-04 16:24:24.716897] US 엔진 비정상 종료 → 재시작 6
+[2025-12-04 16:24:24.716897] 재시작 한도 초과 → US 엔진 중단

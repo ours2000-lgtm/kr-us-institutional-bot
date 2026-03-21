@@ -1,0 +1,147 @@
+# =============================================================
+#  executor_korea.py (V3 FINAL)
+#  - V5 신호 엔진과 Adaptive Params와 호환
+#  - 공격/방어/HFT 모드 자동 대응
+#  - 자동 TP/SL + 페이크/역모멘텀 차단 청산 포함
+# =============================================================
+
+from datetime import datetime
+
+
+class KoreaExecutorV3:
+
+    def __init__(self, portfolio, logger=None, mode="SIM"):
+        self.portfolio = portfolio
+        self.logger = logger
+        self.mode = mode.upper()
+
+        if self.logger:
+            self.logger.info(f"[INIT] KoreaExecutor V3 초기화 완료 (mode={self.mode})")
+
+    # -------------------------------------------------------------
+    # 시그널 처리 메인 엔진
+    # -------------------------------------------------------------
+    def process_signals(self, signals, market_data, params):
+        """
+        signals  : V5 신호 리스트
+        market_data : 현재 틱 데이터
+        params : adaptive_params_v5 에서 전달된 동적 파라미터
+        """
+
+        # 1) 먼저 보유 종목 체크 → TP/SL/역모멘텀/페이크 여부 확인
+        self._check_open_positions(market_data, params)
+
+        # 2) 새로운 매수 신호 처리
+        if signals:
+            best = signals[0]  # 스코어 가장 높은 종목
+            self._handle_buy_signal(best, market_data, params)
+
+    # -------------------------------------------------------------
+    # 새로운 매수 신호 처리
+    # -------------------------------------------------------------
+    def _handle_buy_signal(self, sig, market_data, params):
+
+        code = sig["code"]
+        price = sig["price"]
+        score = sig["score"]
+        mode = sig["mode"]
+
+        # 이미 보유 중이면 무시
+        if code in self.portfolio.positions:
+            return
+
+        # 거래 최소 요건
+        if price <= 0:
+            return
+
+        # ---------------------------------------------------------
+        # 매수 규모 결정 (모드 기반)
+        # ---------------------------------------------------------
+        if mode == "HFT":
+            qty = 1
+        elif mode == "AGGRO":
+            qty = 1
+        else:  # DEFENSE 모드
+            qty = 1
+
+        # ---------------------------------------------------------
+        # 매수 실행
+        # ---------------------------------------------------------
+        self.portfolio.buy(
+            code=code,
+            qty=qty,
+            price=price,
+            strategy=mode,
+            tp=params["tp"],
+            sl=params["sl"]
+        )
+
+        if self.logger:
+            self.logger.info(
+                f"[EXEC-BUY] {code} qty={qty} price={price:.2f} "
+                f"(mode={mode}, score={score}, TP={params['tp']}%, SL={params['sl']}%)"
+            )
+
+    # -------------------------------------------------------------
+    # 보유 포지션 관리
+    # -------------------------------------------------------------
+    def _check_open_positions(self, market_data, params):
+
+        remove_list = []
+
+        for code, pos in self.portfolio.positions.items():
+
+            tick = market_data.get(code)
+            if tick is None:
+                continue
+
+            cur_price = tick["price"]
+            entry = pos["entry"]
+            pnl = (cur_price - entry) / entry * 100
+
+            # ---------------------------------------------------------
+            # 1) TP (이익실현)
+            # ---------------------------------------------------------
+            if pnl >= params["tp"]:
+                self._execute_sell(code, cur_price, "TP_AUTO")
+                remove_list.append(code)
+                continue
+
+            # ---------------------------------------------------------
+            # 2) SL (손절)
+            # ---------------------------------------------------------
+            if pnl <= -params["sl"]:
+                self._execute_sell(code, cur_price, "SL_AUTO")
+                remove_list.append(code)
+                continue
+
+            # ---------------------------------------------------------
+            # 3) 역모멘텀 차단
+            # ---------------------------------------------------------
+            if "momentum" in pos and pos["momentum"] < 0:
+                self._execute_sell(code, cur_price, "EXIT_REVERSE_MOMO")
+                remove_list.append(code)
+                continue
+
+            # ---------------------------------------------------------
+            # 4) Fake breakout 감지된 경우 즉시 청산
+            # ---------------------------------------------------------
+            if pos.get("fake_breakout", False):
+                self._execute_sell(code, cur_price, "EXIT_FAKE_BREAKOUT")
+                remove_list.append(code)
+                continue
+
+        # 전체 정리
+        for code in remove_list:
+            self.portfolio.close(code)
+
+    # -------------------------------------------------------------
+    # 매도 처리
+    # -------------------------------------------------------------
+    def _execute_sell(self, code, price, reason):
+        self.portfolio.sell(code, price)
+
+        if self.logger:
+            self.logger.info(
+                f"[EXEC-SELL] {code} exit_price={price:.2f} ({reason})"
+            )

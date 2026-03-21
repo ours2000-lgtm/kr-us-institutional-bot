@@ -1,0 +1,341 @@
+# =============================================================
+#  run_us.py V5 — 미국 HFT Hybrid Auto-Trading Engine
+#  (기관급 + 전략 자동전환 + 메타 강도 기반 적응형 시스템)
+# =============================================================
+
+import time
+import traceback
+from datetime import datetime
+import pytz
+
+from core.signal_us_master_plus import USSignalMasterPLUS
+from core.executor_us_plus import USExecutorPLUS
+from core.portfolio_us_plus import USPortfolioPLUS
+from core.regime_us_plus import USRegimePLUS
+from core.adaptive_params_v5_plus_us import AdaptiveParamsV5_PLUS_US
+
+import logging
+import os
+import sys
+
+# -------------------------------------------------------------
+# 로깅 설정
+# -------------------------------------------------------------
+def setup_logger():
+    log_dir = "./logs/us/"
+    os.makedirs(log_dir, exist_ok=True)
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    file_path = os.path.join(log_dir, f"us_run_{date_str}.log")
+
+    logger = logging.getLogger("US_RUN")
+    logger.setLevel(logging.INFO)
+
+    fh = logging.FileHandler(file_path, encoding="utf-8")
+    fh.setLevel(logging.INFO)
+
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fh.setFormatter(fmt)
+
+    logger.addHandler(fh)
+    return logger
+
+
+logger = setup_logger()
+
+# -------------------------------------------------------------
+# Alpaca API 연결 (PAPER/LIVE 자동)
+# -------------------------------------------------------------
+from alpaca_trade_api import REST
+
+def connect_alpaca():
+    try:
+        api_key = os.getenv("APCA_API_KEY")
+        secret = os.getenv("APCA_API_SECRET")
+        base_url = os.getenv("APCA_API_BASE", "https://paper-api.alpaca.markets")
+
+        api = REST(api_key, secret, base_url, api_version="v2")
+        logger.info("[INIT] Alpaca API 연결 성공")
+        return api
+    except:
+        logger.error("[ERROR] Alpaca 연결 실패")
+        logger.error(traceback.format_exc())
+        return None
+
+
+api = connect_alpaca()
+
+# -------------------------------------------------------------
+# 엔진 로딩
+# -------------------------------------------------------------
+signal_engine = USSignalMasterPLUS(logger=logger)
+executor = USExecutorPLUS(api, logger=logger)
+portfolio = USPortfolioPLUS(logger=logger)
+regime = USRegimePLUS(logger=logger)
+
+params = AdaptiveParamsV5_PLUS_US()
+logger.info("[INIT] US Trading Engine V5 Loaded")
+
+# =============================================================
+# PART 2 — 실시간 시세 수집 + 메타 강도 계산 + 장세 레짐 판정
+# =============================================================
+
+# -------------------------------------------------------------
+# 1) Alpaca 다중 종목 실시간 시세 수집
+# -------------------------------------------------------------
+def get_market_data(api):
+    """
+    Alpaca API에서 전체 심볼 시세 가져오기 (최적화 버전)
+    """
+    try:
+        assets = api.list_assets(status="active")
+        symbols = [a.symbol for a in assets if a.tradable]
+
+        data = {}
+        quotes = api.get_latest_quotes(symbols)
+
+        for sym, q in quotes.items():
+            try:
+                data[sym] = {
+                    "price": q.ap,
+                    "vwap": q.bp if q.bp > 0 else q.ap,
+                    "volume": q.av or 1,
+
+                    "bid": q.bp,
+                    "ask": q.ap,
+                    "bid_size": q.bs or 1,
+                    "ask_size": q.as_ or 1,
+
+                    "sector_strength": 0,   # 추후 S&P/ETF 기반 섹터 매핑 가능
+                }
+            except:
+                continue
+
+        return data
+
+    except Exception:
+        logger.error("[ERROR] 시세 수집 오류")
+        logger.error(traceback.format_exc())
+        return {}
+
+
+# -------------------------------------------------------------
+# 2) 메타 시장 강도 계산 (SPY + QQQ + VIX)
+# -100 ~ +100 범위
+# -------------------------------------------------------------
+def compute_meta_strength(api):
+
+    def safe_price(symbol):
+        try:
+            q = api.get_latest_quote(symbol)
+            return q.ap if q.ap > 0 else q.bp
+        except:
+            return None
+
+    spy = safe_price("SPY")
+    qqq = safe_price("QQQ")
+    vix = safe_price("VIX")
+
+    if spy is None or qqq is None or vix is None:
+        return 0   # 데이터 없으면 중립
+
+    # SPY + QQQ 상승률 기반 (전일 대비 상승률이 가장 정확)
+    try:
+        spy_prev = api.get_previous_close("SPY").close
+        qqq_prev = api.get_previous_close("QQQ").close
+        vix_prev = api.get_previous_close("VIX").close
+    except:
+        return 0
+
+    spy_ret = (spy - spy_prev) / spy_prev * 100
+    qqq_ret = (qqq - qqq_prev) / qqq_prev * 100
+    vix_ret = (vix - vix_prev) / vix_prev * 100
+
+    # VIX는 반대 방향(상승 → 위험)
+    vix_score = -vix_ret
+
+    # 메타 강도 종합
+    meta = (
+        spy_ret * 0.4 +
+        qqq_ret * 0.4 +
+        vix_score * 0.2
+    )
+
+    # -100 ~ +100 제한
+    meta = max(min(meta, 100), -100)
+
+    return meta
+
+
+# -------------------------------------------------------------
+# 3) 미국 장세 레짐 판정
+# -------------------------------------------------------------
+def detect_market_regime_us(meta_strength):
+    """
+    meta_strength: -100 ~ +100
+    """
+
+    if meta_strength > 35:
+        return "BULL"
+    if meta_strength > 5:
+        return "NORMAL"
+    if meta_strength > -20:
+        return "VOLATILE"
+    return "BEAR"
+
+# =============================================================
+# PART 3 — 메인 자동매매 루프 (Signals → Portfolio → Execution)
+# =============================================================
+
+def run_us_engine(api, logger):
+    logger.info("=== US Engine V5 START ===")
+
+    # 엔진 로딩
+    signal_engine = USSignalMasterPLUS(logger)
+    portfolio = USPortfolioPLUS(logger)
+    executor = USExecutorPLUS(api, logger)
+
+    last_log_time = time.time()
+
+    while True:
+        now = datetime.now()
+        tm = now.time()
+
+        # -------------------------------------------------
+        # 1) 미국장 운영 시간 체크 (한국 기준 23:30 ~ 06:00)
+        # -------------------------------------------------
+        if tm < dt_time(23, 30) and tm > dt_time(6, 0):
+            if time.time() - last_log_time > 60:
+                logger.info("[WAIT] 미국장은 23:30에 개장합니다.")
+                last_log_time = time.time()
+            time.sleep(1)
+            continue
+
+        # -------------------------------------------------
+        # 2) 실시간 시장 데이터 수집
+        # -------------------------------------------------
+        market_data = get_market_data(api)
+        if not market_data:
+            logger.warning("[WARN] 실시간 시장 데이터 없음. 1초 대기.")
+            time.sleep(1)
+            continue
+
+        # -------------------------------------------------
+        # 3) 메타 시장 강도 계산 (SPY, QQQ, VIX 기반)
+        # -------------------------------------------------
+        meta_strength = compute_meta_strength(api)
+
+        # -------------------------------------------------
+        # 4) 미국 시장 레짐 계산
+        #     BULL / NORMAL / VOLATILE / BEAR
+        # -------------------------------------------------
+        regime = detect_market_regime_us(meta_strength)
+
+        # -------------------------------------------------
+        # 5) 시그널 생성 (미국형 HFT+MOMO+VCP+RS)
+        # -------------------------------------------------
+        signals = signal_engine.generate_signals(
+            market_data,
+            market_regime=regime,
+            meta_strength=meta_strength
+        )
+
+        # -------------------------------------------------
+        # 6) 포트폴리오 업데이트
+        # -------------------------------------------------
+        portfolio.update_positions(market_data)
+
+        # -------------------------------------------------
+        # 7) 최고 신호만 선택 (하나만 진입)
+        # -------------------------------------------------
+        if signals:
+            best_code, best_score, reason = signals[0]
+        else:
+            best_code, best_score, reason = None, None, None
+
+        # -------------------------------------------------
+        # 8) 진입 조건 체크
+        # -------------------------------------------------
+        buy_allowed = portfolio.can_enter(best_code)
+
+        if buy_allowed and best_code:
+            qty, price = executor.execute_buy(best_code)
+            if qty > 0:
+                portfolio.register_entry(best_code, qty, price, reason)
+
+        # -------------------------------------------------
+        # 9) 청산 조건 체크
+        #     - Take Profit
+        #     - Stop Loss
+        #     - Time-based Exit
+        # -------------------------------------------------
+        exits = portfolio.check_exit_conditions(market_data)
+
+        for code, exit_type in exits:
+            qty, price = executor.execute_sell(code)
+            if qty > 0:
+                portfolio.register_exit(code, qty, price, exit_type)
+
+        # -------------------------------------------------
+        # 10) 루프 속도 조절 (1초)
+        # -------------------------------------------------
+        time.sleep(1)
+
+# =============================================================
+# PART 4 — 에러 복구 / 네트워크 재연결 / 안전 종료 처리
+# =============================================================
+
+def safe_run_us_engine(api, logger):
+    """
+    - 네트워크 오류 자동 복구
+    - API 연결 끊김 자동 재연결
+    - 예외 발생해도 자동 복구 후 재시작
+    """
+
+    while True:
+        try:
+            run_us_engine(api, logger)
+
+        except KeyboardInterrupt:
+            logger.info("[STOP] 수동 종료 요청 감지됨. 엔진을 종료합니다.")
+            break
+
+        except Exception as e:
+            logger.error(f"[ERROR] 미국 엔진 오류 발생: {e}")
+            logger.info("[INFO] 5초 후 자동 재시작…")
+            time.sleep(5)
+            continue
+
+# =============================================================
+# PART 5 — main() (완전체 통합)
+# =============================================================
+
+def main():
+    # -------------------------------
+    # 1) 로거 초기화
+    # -------------------------------
+    logger = init_us_logger()
+
+    logger.info("=== 미국 자동매매 엔진 V5 (PLUS) 시작 ===")
+
+    # -------------------------------
+    # 2) Alpaca API 초기화
+    # -------------------------------
+    api = init_alpaca_api(logger)
+
+    if api is None:
+        logger.error("[FATAL] Alpaca API 초기화 실패 → 프로그램 종료")
+        return
+
+    # -------------------------------
+    # 3) 안전 실행 루프
+    # -------------------------------
+    safe_run_us_engine(api, logger)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+

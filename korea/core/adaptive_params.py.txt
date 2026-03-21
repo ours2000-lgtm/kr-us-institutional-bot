@@ -1,0 +1,114 @@
+# ================================================================
+#  adaptive_params.py (Adaptive Threshold Engine Core)
+#  - 시장 상황에 따라 신호 엔진/실행 엔진의 임계값을 자동 조정
+#  - 체결강도 / 거래대금 / 변동성 / 리더십 / 레짐 / PnL 피드백 반영
+# ================================================================
+
+from dataclasses import dataclass, field
+from collections import deque
+import numpy as np
+
+@dataclass
+class AdaptiveThresholds:
+    # -----------------------------
+    # 핵심 임계값 (SignalEngine + Executor에서 사용)
+    # -----------------------------
+    min_score: float = 3.5        # 기본 진입 스코어
+    min_power: float = 1.20       # 체결강도 최소
+    min_volume: int = 200000      # 최소 거래량
+    min_amount: int = 5_000_00000 # 최소 거래대금
+
+    tp_pct: float = 2.5           # 기본 익절
+    sl_pct: float = 1.0           # 기본 손절
+
+    # -----------------------------
+    # 시장 피드백 저장용 버퍼
+    # -----------------------------
+    trend_buffer: deque = field(default_factory=lambda: deque(maxlen=120))
+    volatility_buffer: deque = field(default_factory=lambda: deque(maxlen=120))
+    liquidity_buffer: deque = field(default_factory=lambda: deque(maxlen=120))
+    pnl_buffer: deque = field(default_factory=lambda: deque(maxlen=50))
+
+    def update_market(self, trend, vol, liq):
+        """레짐 엔진이 제공하는 시장 지표 반영"""
+        self.trend_buffer.append(trend)
+        self.volatility_buffer.append(vol)
+        self.liquidity_buffer.append(liq)
+
+        self._auto_adjust()
+
+    def update_pnl(self, pnl):
+        """승률/연속손실 기반 자동 조절"""
+        self.pnl_buffer.append(pnl)
+        self._auto_adjust()
+
+    # -------------------------------------------------------
+    # 임계값 자동 조절 핵심 로직
+    # -------------------------------------------------------
+    def _auto_adjust(self):
+
+        if len(self.trend_buffer) < 10:
+            return
+
+        avg_trend = np.mean(self.trend_buffer)
+        avg_vol = np.mean(self.volatility_buffer)
+        avg_liq = np.mean(self.liquidity_buffer)
+
+        # -----------------------------
+        # ① 변동성 높으면 → 기준 강화
+        # -----------------------------
+        if avg_vol > 50000:
+            self.min_score = 4.2
+            self.tp_pct = 2.0
+            self.sl_pct = 1.0
+
+        # -----------------------------
+        # ② 변동성 낮음 → 완화
+        # -----------------------------
+        else:
+            self.min_score = 3.5
+            self.tp_pct = 2.5
+            self.sl_pct = 1.0
+
+        # -----------------------------
+        # ③ 연속 손실 → 매우 강하게 조정
+        # -----------------------------
+        if len(self.pnl_buffer) >= 5:
+            recent = list(self.pnl_buffer)[-5:]
+            loss_cnt = sum(1 for p in recent if p < 0)
+
+            if loss_cnt >= 3:
+                # 손실 5 중 3개 이상 → 초강력 방어 모드
+                self.min_score = 4.5
+                self.min_power = 1.30
+                self.min_volume = 250000
+                self.tp_pct = 1.8
+                self.sl_pct = 0.8
+
+        # -----------------------------
+        # ④ 시장 추세: 강한 상승장 → 완화
+        # -----------------------------
+        if avg_trend > 150:
+            self.min_score = max(3.0, self.min_score - 0.3)
+
+        # -----------------------------
+        # ⑤ 시장 급락 → 매우 보수적 모드
+        # -----------------------------
+        if avg_trend < -150:
+            self.min_score = 4.8
+            self.min_power = 1.40
+            self.tp_pct = 1.2
+            self.sl_pct = 0.6
+
+    # -------------------------------------------------------
+    # 임계값 조회 함수 (SignalEngine/Executor에서 사용)
+    # -------------------------------------------------------
+    def get(self):
+        return {
+            "min_score": self.min_score,
+            "min_power": self.min_power,
+            "min_volume": self.min_volume,
+            "min_amount": self.min_amount,
+            "tp_pct": self.tp_pct,
+            "sl_pct": self.sl_pct,
+        }

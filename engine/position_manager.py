@@ -44,9 +44,10 @@ class PositionManager:
     write-side contract:
     - apply_fill(fill_event) is the canonical write path.
 
-    recovery policy:
+    recovery / readiness policy:
     - broker snapshot replace is source-of-truth during recovery
     - BUY fill application is blocked during RECOVERING
+    - BUY fill application is blocked during READY_PENDING
     - SELL fill application is allowed only against existing positions
     """
 
@@ -67,20 +68,22 @@ class PositionManager:
         with self._lock:
             self._recovery_state_supplier = supplier
 
-    def _is_recovering(self) -> bool:
+    def _get_runtime_state(self) -> str:
         with self._lock:
             supplier = self._recovery_state_supplier
 
         if supplier is None:
-            return False
+            return ""
 
         try:
-            state = supplier()
+            return str(supplier()).strip().upper()
         except Exception:
             logger.exception("RECOVERY_STATE_SUPPLIER_FAILED")
-            return False
+            return ""
 
-        return str(state).strip().upper() == "RECOVERING"
+    def _is_buy_fill_blocked_state(self) -> bool:
+        state = self._get_runtime_state()
+        return state in {"RECOVERING", "READY_PENDING"}
 
     # ---------------------------------
     # recovery
@@ -236,12 +239,13 @@ class PositionManager:
         Assumes validated input from apply_fill().
         Direct external use is not recommended.
         """
-        if self._is_recovering():
+        if self._is_buy_fill_blocked_state():
             logger.warning(
-                "BUY_FILL_BLOCKED_DURING_RECOVERING symbol=%s fill_qty=%s fill_price=%s",
+                "BUY_FILL_BLOCKED_BY_RUNTIME_STATE symbol=%s fill_qty=%s fill_price=%s state=%s",
                 symbol,
                 fill_qty,
                 fill_price,
+                self._get_runtime_state(),
             )
             return None
 
@@ -355,9 +359,6 @@ class PositionManager:
 
     def apply_fill(self, fill_event):
         try:
-            # -----------------------------
-            # raw extract + normalization
-            # -----------------------------
             symbol = self._extract_symbol(fill_event)
             side = str(getattr(fill_event, "side", "")).strip().upper()
             raw_qty = getattr(fill_event, "fill_qty", None)
@@ -375,9 +376,6 @@ class PositionManager:
             if raw_price is None:
                 raise ValueError("fill_price is missing")
 
-            # -----------------------------
-            # conversion
-            # -----------------------------
             try:
                 fill_qty = int(raw_qty)
             except (TypeError, ValueError):
@@ -388,9 +386,6 @@ class PositionManager:
             except (TypeError, ValueError):
                 raise ValueError(f"invalid fill_price: {raw_price!r}")
 
-            # -----------------------------
-            # semantic validation
-            # -----------------------------
             if fill_qty <= 0:
                 raise ValueError(f"fill_qty must be > 0: {fill_qty}")
 

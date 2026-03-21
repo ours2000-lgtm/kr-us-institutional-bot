@@ -1,0 +1,10 @@
+﻿{
+    "started":  "2026-01-23 19:51:04",
+    "pid":  1296,
+    "script":  "run_korea_v9_plus.py",
+    "flag":  "E:\\KR_US_INSTITUTIONAL_BOT\\runtime\\flags\\kr_stop.flag",
+    "out_log":  "E:\\KR_US_INSTITUTIONAL_BOT\\logs\\kr_engine.log",
+    "err_log":  "E:\\KR_US_INSTITUTIONAL_BOT\\logs\\kr_engine.log.error",
+    "pid_json":  "E:\\KR_US_INSTITUTIONAL_BOT\\runtime\\pids\\kr_engine.json",
+    "mode":  "PAPER"
+}

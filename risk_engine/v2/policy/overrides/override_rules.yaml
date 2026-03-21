@@ -1,0 +1,15 @@
+# override_rules.yaml — override policy definition (skeleton)
+# -----------------------------------------------------------
+# 이후 정책 엔진이 이 파일을 읽어 override 적용.
+
+# 예시 (아직 사용되지 않음)
+event:
+  force_halt: true
+
+spike:
+  exposure_cap: 0.6
+  leverage_cap: 1.0
+
+normal:
+  exposure_cap: 1.0
+  leverage_cap: 2.0

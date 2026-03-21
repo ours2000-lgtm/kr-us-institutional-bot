@@ -1,0 +1,195 @@
+from __future__ import annotations
+
+import pytest
+
+from src.integration_core.aggregation import AggregationResult
+from src.integration_core.policy import apply_policy
+
+
+def _aggregation(grade: str) -> AggregationResult:
+    """
+    Minimal AggregationResult fixture for policy unit tests.
+    AggregationResult SSOT fields:
+      - grade: PASS/WARN/BLOCK
+      - decision: ALLOW/BLOCK (compat surface)
+      - summary: dict
+      - violation_ids: list[str]
+      - violation_count: int
+      - policy_inputs: dict
+    """
+    decision_compat = "BLOCK" if grade == "BLOCK" else "ALLOW"
+    violation_ids = ["V1"] if grade in ("WARN", "BLOCK") else []
+    violation_count = len(violation_ids)
+
+    summary = {
+        "grade": grade,
+        "decision": decision_compat,
+        "violation_count": violation_count,
+        "violation_ids": violation_ids,
+        "counts": {"PASS": 1, "WARN": 0, "BLOCK": 0},
+        "total": 1,
+    }
+
+    policy_inputs = {
+        "grade": grade,
+        "decision_compat": decision_compat,
+        "violation_count": violation_count,
+    }
+
+    return AggregationResult(
+        grade=grade,
+        decision=decision_compat,
+        summary=summary,
+        violation_ids=violation_ids,
+        violation_count=violation_count,
+        policy_inputs=policy_inputs,
+    )
+
+
+def test_strict_mode_pass_allows():
+    """
+    strict ⇒ WARN↑만 강화, PASS는 그대로 ALLOW
+    """
+    agg = _aggregation("PASS")
+    policy = apply_policy(agg, mode="strict")
+
+    assert policy.decision == "ALLOW"
+    assert "P2-AGG-PASS-ALLOW" in policy.reason_codes
+
+
+def test_warn_mode_pass_allows():
+    """
+    warn 모드라도 PASS는 default와 동일하게 ALLOW
+    """
+    agg = _aggregation("PASS")
+    policy = apply_policy(agg, mode="warn")
+
+    assert policy.decision == "ALLOW"
+    assert "P2-AGG-PASS-ALLOW" in policy.reason_codes
+
+
+def test_strict_mode_warn_becomes_block():
+    """
+    strict + WARN => BLOCK
+    """
+    agg = _aggregation("WARN")
+    policy = apply_policy(agg, mode="strict")
+
+    assert policy.decision == "BLOCK"
+    assert "P0-MODE-STRICT-BLOCK" in policy.reason_codes
+
+
+def test_block_mode_always_blocks():
+    """
+    block mode => unconditional BLOCK
+    """
+    agg = _aggregation("PASS")
+    policy = apply_policy(agg, mode="block")
+
+    assert policy.decision == "BLOCK"
+    assert "P0-MODE-BLOCK-ALL" in policy.reason_codes
+
+
+def test_default_mode_warn_allows():
+    """
+    default + WARN => ALLOW
+    """
+    agg = _aggregation("WARN")
+    policy = apply_policy(agg, mode="default")
+
+    assert policy.decision == "ALLOW"
+    assert "P2-AGG-WARN-ALLOW" in policy.reason_codes
+
+
+def test_warn_mode_warn_allows_with_mode_reason():
+    """
+    warn 모드: WARN을 ALLOW 하되 mode 전용 reason code로 명시
+    """
+    agg = _aggregation("WARN")
+    policy = apply_policy(agg, mode="warn")
+
+    assert policy.decision == "ALLOW"
+    assert "P2-MODE-WARN-ALLOW" in policy.reason_codes
+    assert "P2-AGG-WARN-ALLOW" not in policy.reason_codes  # SSOT: warn은 전용 코드만
+
+
+@pytest.mark.parametrize("mode", ["default", "strict", "warn"])
+def test_block_grade_always_blocks_for_non_block_mode(mode):
+    """
+    BLOCK grade는 fail-closed 하드 게이트 (block 모드 제외)
+    - block 모드는 unconditional BLOCK이 우선이라 reason code가 다를 수 있음
+    """
+    agg = _aggregation("BLOCK")
+    policy = apply_policy(agg, mode=mode)
+
+    assert policy.decision == "BLOCK"
+    assert "P0-AGG-BLOCK" in policy.reason_codes
+
+
+def test_block_grade_block_mode_prefers_unconditional_block_code():
+    """
+    BLOCK grade + block 모드:
+    - decision은 BLOCK
+    - reason code는 unconditional block이 우선
+    """
+    agg = _aggregation("BLOCK")
+    policy = apply_policy(agg, mode="block")
+
+    assert policy.decision == "BLOCK"
+    assert "P0-MODE-BLOCK-ALL" in policy.reason_codes
+    # 정책 선택(현재 설계): unconditional 우선, AGG-BLOCK는 block 모드에서 넣지 않음
+    assert "P0-AGG-BLOCK" not in policy.reason_codes
+
+
+def test_policy_ref_mismatch_reason_code():
+    """
+    policy_ref mismatch => P0-POLICY-MISMATCH
+    """
+    agg = _aggregation("PASS")
+    policy = apply_policy(
+        agg,
+        mode="default",
+        policy_ref="DifferentPolicy",
+        policy_version="v0.4",
+        expected_policy_ref="AnyFailBlockPolicy",
+        expected_policy_version="v0.4",
+    )
+    assert "P0-POLICY-MISMATCH" in policy.reason_codes
+
+
+def test_policy_version_mismatch_reason_code():
+    """
+    policy_version mismatch => P0-POLICY-MISMATCH
+    """
+    agg = _aggregation("PASS")
+    policy = apply_policy(
+        agg,
+        mode="default",
+        policy_ref="AnyFailBlockPolicy",
+        policy_version="v0.3",
+        expected_policy_ref="AnyFailBlockPolicy",
+        expected_policy_version="v0.4",
+    )
+    assert "P0-POLICY-MISMATCH" in policy.reason_codes
+
+
+def test_reason_codes_order_is_stable():
+    """
+    같은 입력이면 reason_codes 순서가 항상 동일해야 한다.
+    (감사/디프 안정성)
+    """
+    agg = _aggregation("WARN")
+    p1 = apply_policy(agg, mode="default")
+    p2 = apply_policy(agg, mode="default")
+
+    assert p1.reason_codes == p2.reason_codes
+
+
+def test_reason_codes_do_not_duplicate():
+    """
+    reason_codes 중복 방지
+    """
+    agg = _aggregation("BLOCK")
+    policy = apply_policy(agg, mode="block")
+
+    assert len(policy.reason_codes) == len(set(policy.reason_codes))

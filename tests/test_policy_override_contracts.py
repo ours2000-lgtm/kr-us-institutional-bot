@@ -204,3 +204,163 @@ def run_consistency_pipeline(
         policy=policy,
         evidence=evidence,
     )
+
+# ---------------------------------------------------------------------
+# v0.5.3 Override hardening (hash-safety + marker invariants)
+# Append-only tests: DO NOT modify existing tests above.
+# ---------------------------------------------------------------------
+
+from src.integration_core.run_consistency_pipeline import run_consistency_pipeline
+from src.integration_core.policy_composition import PolicySpec
+from src.integration_core.policy_override import PolicyOverride
+
+
+def _marker(rcs: list[str]) -> str:
+    markers = [rc for rc in rcs if rc in ("P0-COMPOSITE-BLOCK", "P2-COMPOSITE-ALLOW")]
+    assert len(markers) == 1, f"Expected exactly one composite marker, got={markers} / rcs={rcs}"
+    return markers[0]
+
+
+def test_override_patch_specs_no_effect_keeps_hashes_identical():
+    """
+    Hash-safety contract:
+    If override does NOT change the effective policy outcome,
+    then inputs_hash/evidence_hash MUST remain identical.
+    Override MUST be recorded in rich_context ONLY.
+    """
+    c = _consistency()
+    ts = "2026-02-26T00:00:00Z"
+
+    # Baseline: default behavior
+    r0 = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+    )
+
+    # Patch override that is "no-op" in effect:
+    # We patch the policy specs to the same set that baseline would use anyway.
+    specs = [
+        PolicySpec(ref="AnyFailBlockPolicy", version="v0.4", enabled=True, priority=100)
+    ]
+    ov = PolicyOverride(
+        mode="patch_specs",
+        patch_specs=specs,
+    )
+
+    r1 = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+        override=ov,
+    )
+
+    assert r0.evidence.inputs_hash == r1.evidence.inputs_hash
+    assert r0.evidence.evidence_hash == r1.evidence.evidence_hash
+
+    # override is audit/debug only (rich_context), never in core hash input
+    rc1 = r1.evidence.rich_context or {}
+    assert "override" in rc1, "override MUST be recorded in rich_context"
+    # (Optional) minimal sanity: ensure it is not empty
+    assert rc1["override"]
+
+
+def test_override_force_mode_changes_decision_and_changes_hashes():
+    """
+    Override behavior contract:
+    If override changes the effective policy outcome (e.g., force_mode=block),
+    then hashes MUST change because core policy fields change.
+    """
+    c = _consistency()
+    ts = "2026-02-26T00:00:00Z"
+
+    r0 = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+    )
+
+    ov = PolicyOverride(
+        mode="force_mode",
+        force_policy_mode="block",
+    )
+
+    r1 = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+        override=ov,
+    )
+
+    # Must block regardless of aggregation
+    assert r1.policy.decision == "BLOCK"
+
+    # Since core policy result is different, hashes must differ
+    assert r0.evidence.inputs_hash != r1.evidence.inputs_hash
+    assert r0.evidence.evidence_hash != r1.evidence.evidence_hash
+
+
+def test_override_replace_set_records_set_key_in_rich_context():
+    """
+    replace_set audit contract:
+    policy_set_key MUST be preserved in rich_context for auditability.
+    """
+    c = _consistency()
+    ts = "2026-02-26T00:00:00Z"
+
+    ov = PolicyOverride(
+        mode="replace_set",
+        policy_set_key="default",
+    )
+
+    r = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+        override=ov,
+    )
+
+    rc = r.evidence.rich_context or {}
+    assert "override" in rc
+    # Expect the registry key to be recorded
+    # (key name depends on PolicyOverride.to_rich_dict implementation; these two cover common shapes)
+    o = rc["override"]
+    if isinstance(o, dict) and "policy_set_key" in o:
+        assert o["policy_set_key"] == "default"
+    elif isinstance(o, dict) and "replace_set" in o and isinstance(o["replace_set"], dict):
+        assert o["replace_set"].get("policy_set_key") == "default"
+    else:
+        raise AssertionError(f"Unexpected override rich_context shape: {o}")
+
+
+def test_override_marker_reason_code_invariant_exactly_once_and_first():
+    """
+    Marker invariant (audit/diff stability):
+    - composite marker MUST appear exactly once
+    - marker MUST be the first reason_code
+    This must hold even when override is used.
+    """
+    c = _consistency()
+    ts = "2026-02-26T00:00:00Z"
+
+    # Run with an override to ensure invariants survive override paths.
+    ov = PolicyOverride(mode="force_mode", force_policy_mode="block")
+
+    r = run_consistency_pipeline(
+        consistency=c,
+        principal=_principal(),
+        timestamp_utc=ts,
+        mode="default",
+        override=ov,
+    )
+
+    rcs = list(r.policy.reason_codes)
+    mk = _marker(rcs)
+
+    assert rcs[0] == mk, f"Marker MUST be first. mk={mk} rcs={rcs}"
+    assert rcs.count(mk) == 1, f"Marker MUST appear exactly once. mk={mk} rcs={rcs}"

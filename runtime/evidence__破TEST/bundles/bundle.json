@@ -1,0 +1,32 @@
+{
+  "bundle_id": "BUNDLE-TEST-0001",
+  "records": [
+    {
+      "evidence_id": "EV-TEST-0001",
+      "evidence_type": "GOVERNANCE_AMENDMENT_RECORD",
+      "created_at_utc": "2026-02-08T12:00:00Z",
+      "emitter_id": "TEST_EMITTER",
+      "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+      "canonicalizer_profile_version": "CANONICALIZER_v1",
+      "cryptographic_policy_version": "CRYPTO_POLICY_v1",
+
+      "hashes": {
+        "record_hash": "dummyhash",
+        "hash_method": "SHA-256"
+      },
+
+      "signature": {
+        "sig_alg": "RSA-PSS-SHA256",
+        "signer_id": "TEST_SIGNER",
+        "key_ref": "KEY-TEST-01",
+        "value": "dummy-signature"
+      },
+
+      "payload": {
+        "amendment_id": "AMEND-GOVERNANCE-REV1.1-0001",
+        "proposal_version": "v1",
+        "stage": "DRAFT"
+      }
+    }
+  ]
+}

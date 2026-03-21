@@ -1,0 +1,86 @@
+{
+  "id": null,
+  "type": "timeseries",
+  "title": "Panel 4-B — FAILED.UNKNOWN top candidates (v1.1)",
+  "description": "Exploratory panel (v1.1). Not part of taxonomy observability v1.2 frozen baseline. No thresholds, no alerts — evidence only. Evidence for prioritization, not governance.",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "topk(10, sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\", reason_code=\"FAILED.UNKNOWN\"}[24h])))",
+      "legendFormat": "UNKNOWN candidate count — 24h (Top 10)"
+    },
+    {
+      "refId": "B",
+      "expr": "sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\", reason_code=\"FAILED.UNKNOWN\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h]))",
+      "legendFormat": "UNKNOWN candidate ratio — 24h"
+    },
+    {
+      "refId": "A_7D",
+      "expr": "topk(10, avg_over_time(sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\", reason_code=\"FAILED.UNKNOWN\"}[24h]))[7d:1d]))",
+      "legendFormat": "UNKNOWN candidate count — 7d avg (Top 10)",
+      "hide": true
+    },
+    {
+      "refId": "B_7D",
+      "expr": "avg_over_time((sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\", reason_code=\"FAILED.UNKNOWN\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h])))[7d:1d])",
+      "legendFormat": "UNKNOWN candidate ratio — 7d avg",
+      "hide": true
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": "short",
+      "custom": {
+        "drawStyle": "bars",
+        "stacking": {
+          "mode": "none"
+        },
+        "fillOpacity": 70,
+        "lineWidth": 1
+      }
+    },
+    "overrides": [
+      {
+        "matcher": { "id": "byName", "options": "UNKNOWN candidate ratio — 24h" },
+        "properties": [
+          { "id": "unit", "value": "percentunit" },
+          { "id": "custom.axisPlacement", "value": "right" },
+          { "id": "custom.drawStyle", "value": "line" },
+          { "id": "custom.lineWidth", "value": 1 },
+          { "id": "custom.fillOpacity", "value": 0 }
+        ]
+      },
+      {
+        "matcher": { "id": "byName", "options": "UNKNOWN candidate ratio — 7d avg" },
+        "properties": [
+          { "id": "unit", "value": "percentunit" },
+          { "id": "custom.axisPlacement", "value": "right" },
+          { "id": "custom.drawStyle", "value": "line" },
+          { "id": "custom.lineWidth", "value": 1 },
+          { "id": "custom.fillOpacity", "value": 0 }
+        ]
+      }
+    ]
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "all",
+      "sort": "desc",
+      "valueAndPercent": true
+    }
+  },
+  "gridPos": {
+    "h": 14,
+    "w": 24,
+    "x": 0,
+    "y": 0
+  }
+}

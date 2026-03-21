@@ -1,0 +1,160 @@
+# =============================================================
+#  regime_us_plus.py  (V3 — 미국 시장 레짐 엔진 PLUS)
+# -------------------------------------------------------------
+#  구성 요소:
+#    - SPY / QQQ 시장 강도 지수
+#    - VIX 변동성 지수
+#    - 선물(ES, NQ) 방향성 참고
+#    - 거래량 기반 시장 모멘텀
+# -------------------------------------------------------------
+#  출력:
+#    BULL      → 공격형 전략
+#    NORMAL    → 보통장
+#    BEAR      → 방어형 전략
+#    VOLATILE  → 변동성 급등 → 방어형 강제
+# -------------------------------------------------------------
+# =============================================================
+
+import numpy as np
+from datetime import datetime
+
+
+class USMarketRegimeV3:
+    """
+    미국 시장 레짐(시장 상태) 분석기
+    - SPY/QQQ 추세 + 변동성(VIX) + 선물 흐름 + 거래량을 기반으로 정합 판단
+    """
+
+    def __init__(self, logger=None):
+        self.logger = logger
+        if self.logger:
+            self.logger.info("[INIT] USMarketRegimeV3 초기화 완료")
+
+    # ---------------------------------------------------------
+    # SPY/QQQ 시장 강도 계산
+    # ---------------------------------------------------------
+    def _calc_etf_strength(self, spy, qqq):
+        """
+        ETF strength:
+        - 최근 20틱 평균 대비 현재가 상승률
+        - SPY, QQQ 둘을 평균해서 시장 강도로 사용
+        """
+        try:
+            spy_arr = np.array(spy[-20:])
+            qqq_arr = np.array(qqq[-20:])
+
+            spy_momo = (spy_arr[-1] - spy_arr.mean()) / spy_arr.mean() * 100
+            qqq_momo = (qqq_arr[-1] - qqq_arr.mean()) / qqq_arr.mean() * 100
+
+            return (spy_momo + qqq_momo) / 2.0
+
+        except:
+            return 0.0
+
+    # ---------------------------------------------------------
+    # 변동성(VIX) 기반 레짐 계산
+    # ---------------------------------------------------------
+    def _calc_vix_regime(self, vix_now):
+        """
+        일반적 기준:
+        - VIX > 25 → VOLATILE
+        - 18 < VIX <= 25 → RISKY
+        - VIX <= 18 → NORMAL
+        """
+        if vix_now > 28:
+            return "VOLATILE"
+        if vix_now > 20:
+            return "RISKY"
+        return "NORMAL"
+
+    # ---------------------------------------------------------
+    # 선물(ES/NQ) 방향성 판단
+    # ---------------------------------------------------------
+    def _calc_futures_trend(self, es_price, nq_price):
+        """
+        - ES/NQ 둘의 최근 30틱 slope 기반 방향성
+        """
+        try:
+            es_arr = np.array(es_price[-30:])
+            nq_arr = np.array(nq_price[-30:])
+
+            es_slope = es_arr[-1] - es_arr.mean()
+            nq_slope = nq_arr[-1] - nq_arr.mean()
+
+            avg_slope = (es_slope + nq_slope) / 2.0
+
+            return avg_slope
+        except:
+            return 0.0
+
+    # ---------------------------------------------------------
+    # 거래량 기반 위험 감지
+    # ---------------------------------------------------------
+    def _volume_risk(self, spy_vol):
+        """
+        - 거래량 급증: 시장 불안 또는 강세 시작 구간
+        - 거래량 급감: 불확실성 구간
+        """
+        try:
+            v_arr = np.array(spy_vol[-20:])
+            now = v_arr[-1]
+            avg = v_arr.mean()
+
+            if now > avg * 1.8:
+                return "HIGH"
+            if now < avg * 0.6:
+                return "LOW"
+
+            return "NORMAL"
+        except:
+            return "NORMAL"
+
+    # ---------------------------------------------------------
+    # 시장 레짐 최종 결정
+    # ---------------------------------------------------------
+    def determine_regime(self, spy_prices, qqq_prices, spy_volume, vix_value,
+                         es_prices=None, nq_prices=None):
+        """
+        입력 데이터는 run_us.py 에서 실시간 전달됨
+        """
+
+        # 1) ETF 강도
+        etf_strength = self._calc_etf_strength(spy_prices, qqq_prices)
+
+        # 2) VIX 기반 위험 레벨
+        vix_state = self._calc_vix_regime(vix_value)
+
+        # 3) 선물 방향성
+        futures_trend = 0
+        if es_prices and nq_prices:
+            futures_trend = self._calc_futures_trend(es_prices, nq_prices)
+
+        # 4) 거래량 위험
+        vol_state = self._volume_risk(spy_volume)
+
+        # ------------------------
+        # 최종 레짐 결정 로직
+        # ------------------------
+        # A) 변동성 급등 → 무조건 VOLATILE
+        if vix_state == "VOLATILE":
+            return "VOLATILE"
+
+        # B) ETF 강도 매우 약함 → BEAR
+        if etf_strength < -0.35:
+            return "BEAR"
+
+        # C) 선물 약한 하락 → BEAR
+        if futures_trend < -0.2:
+            return "BEAR"
+
+        # D) ETF 강도 강함 → BULL
+        if etf_strength > 0.25 and futures_trend > 0:
+            return "BULL"
+
+        # E) 거래량 급감 → 불확실성 → NORMAL 처리
+        if vol_state == "LOW":
+            return "NORMAL"
+
+        # F) 그 외 → NORMAL
+        return "NORMAL"
+

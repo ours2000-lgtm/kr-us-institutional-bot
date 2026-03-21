@@ -1,0 +1,85 @@
+{
+  "id": null,
+  "type": "timeseries",
+  "title": "Panel 4 — FAILED.UNKNOWN ratio & count (24h / 7d)",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS"
+  },
+  "description": "UNKNOWN failure taxonomy: ratio (left axis) vs absolute count (right axis). Alert logic is GOVERNANCE-FROZEN; this panel is explanatory.",
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h]))",
+      "legendFormat": "UNKNOWN ratio — 24h rolling"
+    },
+    {
+      "refId": "B",
+      "expr": "avg_over_time((sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h])) / sum(increase(terminal_total{terminal_state=\"FAILED\"}[24h])))[7d:1d])",
+      "legendFormat": "UNKNOWN ratio — 7d avg"
+    },
+    {
+      "refId": "C",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h]))",
+      "legendFormat": "UNKNOWN count — 24h"
+    },
+    {
+      "refId": "D",
+      "expr": "avg_over_time(sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[24h]))[7d:1d])",
+      "legendFormat": "UNKNOWN count — 7d avg"
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "custom": {
+        "drawStyle": "line",
+        "lineWidth": 2,
+        "fillOpacity": 8
+      },
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 0.01 },
+          { "color": "orange", "value": 0.03 },
+          { "color": "red", "value": 0.05 }
+        ]
+      }
+    },
+    "overrides": [
+      {
+        "matcher": { "id": "byRegexp", "options": "UNKNOWN ratio.*" },
+        "properties": [
+          { "id": "unit", "value": "percentunit" },
+          { "id": "custom.axisPlacement", "value": "left" },
+          { "id": "min", "value": 0 },
+          { "id": "max", "value": 0.1 },
+          { "id": "custom.lineWidth", "value": 3 }
+        ]
+      },
+      {
+        "matcher": { "id": "byRegexp", "options": "UNKNOWN count.*" },
+        "properties": [
+          { "id": "unit", "value": "short" },
+          { "id": "custom.axisPlacement", "value": "right" },
+          { "id": "custom.lineStyle", "value": { "dash": [6, 4] } }
+        ]
+      }
+    ]
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "all"
+    }
+  },
+  "gridPos": {
+    "h": 12,
+    "w": 24,
+    "x": 0,
+    "y": 0
+  }
+}

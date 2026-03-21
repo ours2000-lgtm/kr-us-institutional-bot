@@ -1,0 +1,207 @@
+# =============================================================
+# portfolio_us_plus.py (V3)
+# -------------------------------------------------------------
+# 미국 자동매매 포트폴리오 엔진
+#  - 실시간 포지션 추적
+#  - TP/SL 자동관리
+#  - Trailing Stop 옵션
+#  - 리스크 기반 수량 관리 & 포트폴리오 제한
+#  - Meta PnL 기반 Risk-On / Risk-Off 조절
+# =============================================================
+
+import numpy as np
+from datetime import datetime
+
+
+class USPortfolioV3:
+    """
+    미국시장용 포트폴리오 엔진
+    Alpaca API 포지션 데이터를 직접 활용.
+    """
+
+    def __init__(self, alpaca, logger=None):
+        self.api = alpaca
+        self.logger = logger
+
+        # 내부 저장용
+        self.positions = {}  # code → { qty, entry, tp, sl, trail }
+        self.max_positions = 6
+        self.trailing_stop = True
+
+        # Risk 모델
+        self.account_equity = 0
+        self.daily_pnl = 0
+        self.meta_risk_mode = "NEUTRAL"  # RISK_ON / RISK_OFF
+
+        if logger:
+            logger.info("[INIT] US Portfolio V3 Loaded")
+
+    # ---------------------------------------------------------
+    # 계좌 정보 업데이트
+    # ---------------------------------------------------------
+    def update_account_status(self):
+        """
+        Alpaca 계좌 정보 업데이트 (PnL, Equity).
+        """
+        try:
+            account = self.api.get_account()
+            self.account_equity = float(account.equity)
+            self.daily_pnl = float(account.equity) - float(account.last_equity)
+
+            # Risk Mode 조정
+            if self.daily_pnl > 0.8:
+                self.meta_risk_mode = "RISK_ON"
+            elif self.daily_pnl < -0.8:
+                self.meta_risk_mode = "RISK_OFF"
+            else:
+                self.meta_risk_mode = "NEUTRAL"
+
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"[ERROR] Failed to update account: {e}")
+
+    # ---------------------------------------------------------
+    # Alpaca 포지션 불러오기 → 내부 저장
+    # ---------------------------------------------------------
+    def sync_positions(self):
+        """
+        Alpaca에서 현 포지션을 읽고 내부 구조 갱신.
+        """
+        try:
+            positions = self.api.list_positions()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"[ERROR] Fetch positions failed: {e}")
+            return
+
+        self.positions = {}
+
+        for pos in positions:
+            symbol = pos.symbol
+            qty = int(float(pos.qty))
+            entry = float(pos.avg_entry_price)
+
+            # 기본 TP/SL 설정값
+            tp = entry * 1.025   # +2.5%
+            sl = entry * 0.99    # -1%
+
+            # 저장
+            self.positions[symbol] = {
+                "qty": qty,
+                "entry": entry,
+                "tp": tp,
+                "sl": sl,
+                "trail": entry * 0.985,   # 기본 trailing pivot
+            }
+
+        if self.logger:
+            self.logger.info(f"[SYNC] {len(self.positions)} positions updated")
+
+    # ---------------------------------------------------------
+    # 포트폴리오 상태 확인
+    # ---------------------------------------------------------
+    def position_count(self):
+        return len(self.positions)
+
+    def has_position(self, symbol):
+        return symbol in self.positions
+
+    def get_position(self, symbol):
+        return self.positions.get(symbol, None)
+
+    # ---------------------------------------------------------
+    # 신규 매수 기록 저장
+    # ---------------------------------------------------------
+    def record_entry(self, symbol, price, qty, strategy=""):
+        tp = price * 1.025
+        sl = price * 0.99
+        trail = price * 0.985
+
+        self.positions[symbol] = {
+            "qty": qty,
+            "entry": price,
+            "tp": tp,
+            "sl": sl,
+            "trail": trail,
+            "strategy": strategy
+        }
+
+        if self.logger:
+            self.logger.info(
+                f"[ENTRY] {symbol} x{qty} @ {price:.2f}, tp={tp:.2f}, sl={sl:.2f}"
+            )
+
+    # ---------------------------------------------------------
+    # TP / SL / Trailing Stop 확인
+    # ---------------------------------------------------------
+    def check_exit_signals(self, tick):
+        """
+        tick = { symbol, price, vwap, volume }
+        """
+        symbol = tick["symbol"]
+
+        if symbol not in self.positions:
+            return None
+
+        pos = self.positions[symbol]
+        price = tick["price"]
+
+        # ----- TAKE PROFIT -----
+        if price >= pos["tp"]:
+            return ("TP", pos["qty"])
+
+        # ----- STOP LOSS -----
+        if price <= pos["sl"]:
+            return ("SL", pos["qty"])
+
+        # ----- TRAILING STOP -----
+        if self.trailing_stop:
+            if price > pos["trail"]:
+                # trail pivot 상향조정
+                pos["trail"] = price * 0.985
+            elif price < pos["trail"]:
+                return ("TRAIL", pos["qty"])
+
+        return None
+
+    # ---------------------------------------------------------
+    # 종목 청산 후 내부 기록 제거
+    # ---------------------------------------------------------
+    def record_exit(self, symbol):
+        if symbol in self.positions:
+            del self.positions[symbol]
+
+        if self.logger:
+            self.logger.info(f"[EXIT] {symbol} position removed")
+
+    # ---------------------------------------------------------
+    # Risk-Off 모드: 최대 보유 종목 축소
+    # ---------------------------------------------------------
+    def adjust_risk_mode(self):
+        if self.meta_risk_mode == "RISK_OFF":
+            self.max_positions = 3
+        elif self.meta_risk_mode == "RISK_ON":
+            self.max_positions = 8
+        else:
+            self.max_positions = 6
+
+        if self.logger:
+            self.logger.info(
+                f"[RISK] Mode={self.meta_risk_mode}, max_positions={self.max_positions}"
+            )
+
+    # ---------------------------------------------------------
+    # 신규 진입 가능 여부 확인
+    # ---------------------------------------------------------
+    def can_enter(self, symbol):
+        """
+        - 포트폴리오 한도 초과 시 신규 진입 차단
+        - 동일 종목 중복 진입 차단
+        """
+        if self.has_position(symbol):
+            return False
+
+        if self.position_count() >= self.max_positions:
+            return False
+
+        return True

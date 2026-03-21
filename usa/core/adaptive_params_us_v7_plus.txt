@@ -1,0 +1,131 @@
+# =============================================================
+# adaptive_params_us_v7_plus.py
+# 미국 시장용 시간대 × 레짐 × 전략 기반 TP/SL 엔진 (V7 PLUS)
+# -------------------------------------------------------------
+# 특징:
+#   • 시간대(Open/Mid/Close)별 자동 최적화
+#   • 시장 레짐(HYPER_BULL/BULL/NORMAL/VOLATILE/BEAR/CRASH) 반영
+#   • 전략 모드(HYPER/AGG/DEF/ULTRA_DEF) 기반 TP/SL 조정
+#   • V7 PLUS 기준 전체 엔진과 완전 호환
+# =============================================================
+
+from datetime import datetime
+
+
+class AdaptiveParamsUS_V7Plus:
+    def __init__(self, logger=None):
+        self.logger = logger
+
+    # ---------------------------------------------------------
+    # 시간대 구분 (KST 기준)
+    # ---------------------------------------------------------
+    def get_time_block(self):
+        now = datetime.now().time()
+        h, m = now.hour, now.minute
+        t = h * 100 + m
+
+        # 23:30~00:59 → O P E N
+        if 2330 <= t or t < 100:
+            return "OPEN"
+
+        # 01:00~04:59 → M I D
+        if 100 <= t < 500:
+            return "MID"
+
+        # 05:00~06:00 → C L O S E
+        return "CLOSE"
+
+    # ---------------------------------------------------------
+    # 전략 × 레짐 × 시간대별 TP/SL 계산
+    # ---------------------------------------------------------
+    def get_params(self, strategy, regime):
+        block = self.get_time_block()
+
+        # 기본값
+        tp = 2.0
+        sl = -1.0
+
+        # =============================
+        # TIME BLOCK : OPEN
+        # =============================
+        if block == "OPEN":
+            # 유동성↑ 변동성↑ 강세 타점 좋음
+            if strategy == "HYPER":
+                tp = 3.8
+                sl = -1.3
+            elif strategy == "AGG":
+                tp = 3.2
+                sl = -1.2
+            elif strategy == "DEF":
+                tp = 2.4
+                sl = -1.0
+            else:  # ULTRA_DEF
+                tp = 2.0
+                sl = -0.9
+
+            # 레짐 조정
+            if regime == "HYPER_BULL":
+                tp += 0.7
+            if regime == "BULL":
+                tp += 0.3
+            if regime == "BEAR":
+                sl -= 0.3
+            if regime == "CRASH":
+                sl -= 0.5
+
+        # =============================
+        # TIME BLOCK : MID
+        # =============================
+        elif block == "MID":
+            # 추세 안정 / 과열식 신호 감소
+            if strategy == "HYPER":
+                tp = 3.0
+                sl = -1.2
+            elif strategy == "AGG":
+                tp = 2.6
+                sl = -1.0
+            elif strategy == "DEF":
+                tp = 1.9
+                sl = -0.9
+            else:
+                tp = 1.6
+                sl = -0.8
+
+            if regime == "VOLATILE":
+                tp -= 0.4
+                sl -= 0.2
+            if regime == "BEAR":
+                sl -= 0.3
+
+        # =============================
+        # TIME BLOCK : CLOSE
+        # =============================
+        else:  # CLOSE
+            if strategy == "HYPER":
+                tp = 3.4
+                sl = -1.2
+            elif strategy == "AGG":
+                tp = 2.8
+                sl = -1.1
+            elif strategy == "DEF":
+                tp = 2.2
+                sl = -1.0
+            else:
+                tp = 1.8
+                sl = -0.9
+
+            if regime == "BEAR":
+                tp -= 0.3
+                sl -= 0.3
+            if regime == "CRASH":
+                tp -= 0.4
+                sl -= 0.4
+
+        # 로깅
+        if self.logger:
+            self.logger.info(
+                f"[ADAPTIVE_V7] time={block}, strategy={strategy}, "
+                f"regime={regime}, TP={tp}, SL={sl}"
+            )
+
+        return tp, sl

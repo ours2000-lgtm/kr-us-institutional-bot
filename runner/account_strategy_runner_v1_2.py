@@ -1,7 +1,8 @@
 from typing import Optional
+
 from runner.context import PipelineRunContext
 from runner.trace import generate_trace_id
-from risk_engine.v1_1.account_strategy_runner import run_account_strategy_pipeline_v1_1
+
 
 def run_account_strategy_pipeline_v1_2(
     *args,
@@ -19,8 +20,14 @@ def run_account_strategy_pipeline_v1_2(
     NOTE:
     - ctx usage begins in a later v1.2 commit (observability attach)
     """
+
     trace_id = trace_id or generate_trace_id()
     ctx = PipelineRunContext(trace_id)
+
+    # NOTE: import is intentionally delayed to avoid early import side effects
+    from risk_engine.v1_1.account_strategy_runner import (
+        run_account_strategy_pipeline_v1_1,
+    )
 
     try:
         return run_account_strategy_pipeline_v1_1(*args, **kwargs)

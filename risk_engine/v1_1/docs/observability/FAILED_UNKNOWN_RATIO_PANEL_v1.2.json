@@ -1,0 +1,58 @@
+{
+  "id": 1,
+  "type": "timeseries",
+  "title": "FAILED.UNKNOWN Ratio",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS_DS_UID"
+  },
+  "fieldConfig": {
+    "defaults": {
+      "unit": "percentunit",
+      "decimals": 2,
+      "min": 0,
+      "max": 0.05,
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 0.001 },
+          { "color": "orange", "value": 0.01 },
+          { "color": "red", "value": 0.03 }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "bottom"
+    },
+    "tooltip": {
+      "mode": "single"
+    }
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[15m])) / clamp_min(sum(increase(terminal_total{terminal_state=\"FAILED\"}[15m])), 1)",
+      "legendFormat": "UNKNOWN ratio (15m)",
+      "interval": "",
+      "format": "time_series"
+    },
+    {
+      "refId": "B",
+      "expr": "sum(increase(terminal_total{terminal_state=\"FAILED\",reason_code=\"FAILED.UNKNOWN\"}[1h])) / clamp_min(sum(increase(terminal_total{terminal_state=\"FAILED\"}[1h])), 1)",
+      "legendFormat": "UNKNOWN ratio (1h)",
+      "interval": "",
+      "format": "time_series"
+    }
+  ],
+  "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 8
+  }
+}

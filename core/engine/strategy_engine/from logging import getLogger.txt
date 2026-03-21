@@ -1,0 +1,47 @@
+from logging import getLogger
+
+from core.engine.order_factory import OrderFactory
+from core.engine.execution_controller import ExecutionController
+from core.engine.risk_manager import RiskManager
+
+logger = getLogger(__name__)
+
+
+class StrategyEngine:
+
+    def __init__(self, adapter, strategy):
+
+        self.adapter = adapter
+        self.strategy = strategy
+
+        self.order_factory = OrderFactory()
+        self.risk_manager = RiskManager()
+
+        self.execution_controller = ExecutionController(
+            adapter=self.adapter,
+            order_factory=self.order_factory,
+            risk_manager=self.risk_manager,
+        )
+
+        self.strategy_id = strategy.__class__.__name__
+
+    # ---------------------------------
+    # Tick 처리
+    # ---------------------------------
+
+    def on_tick(self, tick):
+
+        signal = self.strategy.on_tick({}, tick)
+
+        if not signal:
+            return
+
+        logger.debug(
+            "Signal generated strategy=%s symbol=%s action=%s price=%s",
+            self.strategy_id,
+            getattr(signal, "symbol", None),
+            getattr(signal, "action", None),
+            getattr(signal, "price", None),
+        )
+
+        self.execution_controller.execute_signal(signal)

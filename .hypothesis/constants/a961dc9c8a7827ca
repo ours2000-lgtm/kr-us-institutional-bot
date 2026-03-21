@@ -1,0 +1,4 @@
+# file: E:\KR_US_INSTITUTIONAL_BOT\src\integration_core\consistency.py
+# hypothesis_version: 6.151.9
+
+['block', 'warn']

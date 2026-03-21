@@ -1,0 +1,41 @@
+{
+  "id": 3,
+  "type": "timeseries",
+  "title": "FAILED reason_code volume — Top 10 (15m increase)",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "PROMETHEUS_DS_UID"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "topk(10, sum by (reason_code) (increase(terminal_total{terminal_state=\"FAILED\"}[15m])))",
+      "legendFormat": "{{reason_code}}"
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": "short",
+      "color": {
+        "mode": "palette-classic"
+      },
+      "custom": {
+        "drawStyle": "bars",
+        "lineWidth": 1,
+        "fillOpacity": 80,
+        "showPoints": "never"
+      }
+    },
+    "overrides": []
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "right"
+    },
+    "tooltip": {
+      "mode": "all",
+      "sort": "desc"
+    }
+  }
+}
