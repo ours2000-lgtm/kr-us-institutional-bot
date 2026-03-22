@@ -1,0 +1,48 @@
+[
+  {
+    "emitter_id": "E-LOCAL",
+    "event_type": "RUN_START",
+    "trace_id": "T-001",
+    "ts_utc": "2026-02-05T00:00:00Z",
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1"
+  },
+  {
+    "event_type": "TRANSITION",
+    "from_state": "S0_INIT",
+    "to_state": "S1_COLLECTED",
+    "seq": 1,
+    "trace_id": "T-001",
+    "ts_utc": "2026-02-05T00:00:01Z",
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1"
+  },
+  {
+    "event_type": "TRANSITION",
+    "from_state": "S1_COLLECTED",
+    "to_state": "S2_REHEARSAL_PROVEN",
+    "seq": 2,
+    "trace_id": "T-001",
+    "ts_utc": "2026-02-05T00:00:02Z",
+    "payload": {
+      "rehearsal_id": "R-001",
+      "proof_hash": "a1b2c3d4e5f6a1b2"
+    },
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1"
+  },
+  {
+    "event_type": "TRANSITION",
+    "from_state": "S2_REHEARSAL_PROVEN",
+    "to_state": "S3_ACTIVATED",
+    "seq": 3,
+    "trace_id": "T-001",
+    "ts_utc": "2026-02-05T00:00:03Z",
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1"
+  }
+]

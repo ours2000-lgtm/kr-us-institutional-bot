@@ -1,0 +1,124 @@
+# ======================================================================
+#  V9 PLUS MASTER CONFIG  (Korea + US 공통)
+# ======================================================================
+
+ENGINE:
+  mode: "SIM"                   # SIM / LIVE
+  market: "KR"                  # KR / US (각 run에서 자동 변경)
+  timezone: "Asia/Seoul"
+
+  # 자동 재시작
+  auto_restart: true
+  restart_delay: 5
+  max_restarts: 5
+
+  # 메인 루프 주기
+  interval: 1.0
+
+# ======================================================================
+#  SCHEDULE (한국 / 미국 자동운영 시간)
+# ======================================================================
+SCHEDULE:
+  KR:
+    warmup: "08:50:00"
+    start:  "09:00:00"
+    end:    "15:20:00"
+    force_exit: "15:10:00"
+  US:
+    warmup: "23:20:00"
+    start:  "23:30:00"
+    end:    "06:00:00"
+    force_exit: "05:50:00"
+
+# ======================================================================
+#  RISK CONTROL (기관급 손익/노출 제어)
+# ======================================================================
+RISK:
+  max_positions: 3
+  max_loss_per_symbol: -0.007
+  max_portfolio_loss: -0.03
+  max_holding_minutes: 120
+
+  regime:
+    BEAR: 1
+    NEUTRAL: 2
+    BULL: 3
+
+# ======================================================================
+#  SIGNAL ENGINE (ORB / AVWAP / MTF / VCP / 모멘텀)
+# ======================================================================
+SIGNAL:
+  orb_window_minutes: 30
+  orb_break_filter: true
+  orb_fail_filter: true
+
+  avwap_filter: true
+  avwap_threshold: 0.0
+
+  mtf_filter: true
+  mtf_strong: 0.15
+  mtf_weak: -0.15
+
+  vcp_filter: true
+  vcp_multiplier: 2.0
+
+# ======================================================================
+#  ORDERFLOW ENGINE (체결/유동성/압력)
+# ======================================================================
+ORDERFLOW:
+  enabled: true
+  min_quality: 0.25
+  forbid_liquidity_void: true
+
+  spread_limit: 0.015
+  speed_threshold: 0.3
+  imbalance_threshold: 0.55
+
+# ======================================================================
+#  ML QUALITY GATE (가짜 돌파 제거)
+# ======================================================================
+ML:
+  enabled: true
+  min_score: 1.2
+  pattern_weight: 1.2
+  risk_penalty_weight: 1.0
+  history_limit: 300
+
+# ======================================================================
+#  PORTFOLIO ENGINE
+# ======================================================================
+PORTFOLIO:
+  initial_cash: 10000000
+  equal_weight: true
+
+# ======================================================================
+#  UNIVERSE (KR / US)
+# ======================================================================
+UNIVERSE:
+  KR:
+    max_symbols: 200
+    sector_filter: true
+  US:
+    max_symbols: 200
+    sector_filter: false
+
+# ======================================================================
+#  LOGGING
+# ======================================================================
+LOG:
+  level: "INFO"
+  base_dir: "logs"
+  rotate_days: 7
+
+# ======================================================================
+#  BROKER SETTINGS
+# ======================================================================
+BROKER:
+  KR:
+    type: "KIWOOM"
+    auto_connect: true
+  US:
+    type: "ALPACA"
+    key: "YOUR_API_KEY"
+    secret: "YOUR_SECRET"
+    paper: true

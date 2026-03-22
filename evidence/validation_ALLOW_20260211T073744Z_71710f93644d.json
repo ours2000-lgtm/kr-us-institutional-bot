@@ -1,0 +1,39 @@
+{
+  "chain": {
+    "prev_hash": "GENESIS",
+    "this_hash": "7435aea44b373b6a0eb9614fc01efae839f906ca91dc84a68d13fa9b468f0621"
+  },
+  "created_at_utc": "2026-02-11T07:37:44Z",
+  "evidence_type": "GOV_VALIDATION_EVIDENCE",
+  "evidence_version": "EVIDENCE_v1",
+  "inputs": {
+    "bundle_path": "tests\\fixtures\\traces\\trace_ok_v1_signed.json",
+    "bundle_sha256": "71710f93644d4839bae8e8bfb6d82e01455007aa8498d4d7e7b7205d879f77a3"
+  },
+  "meta": {
+    "git_commit": null,
+    "hostname": "PC",
+    "platform": "Windows-10-10.0.26100-SP0",
+    "python_version": "3.10.0",
+    "result_schema_version": "VALIDATION_RESULT_SCHEMA_v1",
+    "schema_version": "EVIDENCE_SCHEMA_v1",
+    "tool_version": "gov_validator_v0.1"
+  },
+  "result": {
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1",
+    "decision": "ALLOW",
+    "fail_closed": false,
+    "failed_stage": "NONE",
+    "schema_set_ref": "docs/schemas/v1",
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "validator_version": "v0.1",
+    "violations": []
+  },
+  "summary": {
+    "decision": "ALLOW",
+    "fail_closed": false,
+    "failed_stage": "NONE",
+    "violations_count": 0
+  }
+}

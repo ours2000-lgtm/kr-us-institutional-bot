@@ -6,6 +6,8 @@ from logging import getLogger
 from threading import RLock
 from typing import Dict, Optional
 
+from core.control_plane.runtime_state_policy import get_runtime_policy
+
 
 logger = getLogger(__name__)
 
@@ -24,38 +26,12 @@ class Position:
 
 
 class PositionManager:
-    """
-    PositionManager
-
-    read-side contract:
-    - External callers must not read or mutate internal Position instances directly.
-    - Use snapshot APIs for read access:
-        * get_position_snapshot(symbol)
-        * get_qty(symbol)
-        * has_position(symbol)
-        * snapshot()
-        * list_active_position_snapshots()
-        * list_active_position_snapshots_for_reconciliation(...)
-
-    snapshot safety:
-    - Snapshot APIs return detached, serialization-safe dictionaries.
-    - Modifying returned values must not affect PositionManager internal state.
-
-    write-side contract:
-    - apply_fill(fill_event) is the canonical write path.
-
-    recovery / readiness policy:
-    - broker snapshot replace is source-of-truth during recovery
-    - BUY fill application is blocked during RECOVERING
-    - BUY fill application is blocked during READY_PENDING
-    - SELL fill application is allowed only against existing positions
-    """
-
-    def __init__(self, on_error=None):
+    def __init__(self, on_error=None, evidence_writer=None):
         self._positions: Dict[str, Position] = {}
         self.on_error = on_error
         self._lock = RLock()
         self._recovery_state_supplier = None
+        self.evidence_writer = evidence_writer
 
     # ---------------------------------
     # recovery state hook
@@ -81,24 +57,14 @@ class PositionManager:
             logger.exception("RECOVERY_STATE_SUPPLIER_FAILED")
             return ""
 
-    def _is_buy_fill_blocked_state(self) -> bool:
-        state = self._get_runtime_state()
-        return state in {"RECOVERING", "READY_PENDING"}
+    def _get_runtime_policy(self):
+        return get_runtime_policy(self._get_runtime_state())
 
     # ---------------------------------
     # recovery
     # ---------------------------------
 
     def replace_active_positions_from_broker_snapshot(self, broker_snapshot: dict) -> dict:
-        """
-        Recovery-only replace API.
-
-        Policy:
-        - broker snapshot is treated as source-of-truth for current active positions
-        - internal active position set is fully replaced
-        - intended only for recovery/bootstrap flows
-        """
-
         if not isinstance(broker_snapshot, dict):
             raise ValueError("broker_snapshot must be dict")
 
@@ -175,7 +141,6 @@ class PositionManager:
                 1 for position in self._positions.values()
                 if int(position.qty) > 0
             )
-
             self._positions = new_positions
 
         logger.warning(
@@ -197,18 +162,6 @@ class PositionManager:
     # ---------------------------------
 
     def get_position(self, symbol) -> Optional[Position]:
-        """
-        DEPRECATED:
-        This method exposes internal mutable state.
-
-        Use snapshot APIs instead:
-        - get_position_snapshot(symbol)
-        - get_qty(symbol)
-        - has_position(symbol)
-
-        This method is kept temporarily for migration and should be removed
-        after all call sites are updated.
-        """
         logger.warning("DEPRECATED_get_position_used symbol=%s", symbol)
         with self._lock:
             return self._positions.get(symbol)
@@ -234,19 +187,33 @@ class PositionManager:
     # ---------------------------------
 
     def apply_buy_fill(self, symbol, fill_qty, fill_price):
-        """
-        Internal helper.
-        Assumes validated input from apply_fill().
-        Direct external use is not recommended.
-        """
-        if self._is_buy_fill_blocked_state():
+        policy = self._get_runtime_policy()
+        state = self._get_runtime_state()
+
+        if policy is None or not policy.buy_fill_allowed:
             logger.warning(
-                "BUY_FILL_BLOCKED_BY_RUNTIME_STATE symbol=%s fill_qty=%s fill_price=%s state=%s",
+                "BUY_FILL_BLOCKED_BY_RUNTIME_POLICY symbol=%s fill_qty=%s fill_price=%s state=%s",
                 symbol,
                 fill_qty,
                 fill_price,
-                self._get_runtime_state(),
+                state,
             )
+
+            if self.evidence_writer is not None:
+                self.evidence_writer.write(
+                    category="fills",
+                    event_type="buy_fill_blocked_by_runtime_policy",
+                    component="PositionManager",
+                    state=state,
+                    symbol=symbol,
+                    side="BUY",
+                    reason="buy_fill_not_allowed_in_state",
+                    payload={
+                        "fill_qty": fill_qty,
+                        "fill_price": fill_price,
+                        "policy_state": state,
+                    },
+                )
             return None
 
         with self._lock:
@@ -302,11 +269,35 @@ class PositionManager:
             }
 
     def apply_sell_fill(self, symbol, fill_qty, fill_price):
-        """
-        Internal helper.
-        Assumes validated input from apply_fill().
-        Direct external use is not recommended.
-        """
+        policy = self._get_runtime_policy()
+        state = self._get_runtime_state()
+
+        if policy is None or not policy.sell_fill_allowed:
+            logger.warning(
+                "SELL_FILL_BLOCKED_BY_RUNTIME_POLICY symbol=%s fill_qty=%s fill_price=%s state=%s",
+                symbol,
+                fill_qty,
+                fill_price,
+                state,
+            )
+
+            if self.evidence_writer is not None:
+                self.evidence_writer.write(
+                    category="fills",
+                    event_type="sell_fill_blocked_by_runtime_policy",
+                    component="PositionManager",
+                    state=state,
+                    symbol=symbol,
+                    side="SELL",
+                    reason="sell_fill_not_allowed_in_state",
+                    payload={
+                        "fill_qty": fill_qty,
+                        "fill_price": fill_price,
+                        "policy_state": state,
+                    },
+                )
+            return None
+
         with self._lock:
             position = self._positions.get(symbol)
 
@@ -316,18 +307,56 @@ class PositionManager:
                     symbol,
                     fill_qty,
                 )
+
+                if self.evidence_writer is not None:
+                    self.evidence_writer.write(
+                        category="fills",
+                        event_type="sell_fill_blocked_by_runtime_policy",
+                        component="PositionManager",
+                        state=state,
+                        symbol=symbol,
+                        side="SELL",
+                        reason="sell_fill_on_empty_position",
+                        payload={
+                            "fill_qty": fill_qty,
+                            "fill_price": fill_price,
+                            "current_position_qty": 0,
+                            "projected_position_qty": -int(fill_qty),
+                            "policy_state": state,
+                        },
+                    )
                 return None
 
-            if fill_qty > position.qty:
+            current_qty = int(position.qty)
+
+            if fill_qty > current_qty:
                 logger.warning(
                     "SELL_FILL_EXCEEDS_POSITION symbol=%s pos_qty=%s fill_qty=%s",
                     symbol,
                     position.qty,
                     fill_qty,
                 )
+
+                if self.evidence_writer is not None:
+                    self.evidence_writer.write(
+                        category="fills",
+                        event_type="sell_fill_blocked_by_runtime_policy",
+                        component="PositionManager",
+                        state=state,
+                        symbol=symbol,
+                        side="SELL",
+                        reason="sell_fill_exceeds_position",
+                        payload={
+                            "fill_qty": fill_qty,
+                            "fill_price": fill_price,
+                            "current_position_qty": current_qty,
+                            "projected_position_qty": current_qty - int(fill_qty),
+                            "policy_state": state,
+                        },
+                    )
                 return None
 
-            new_qty = position.qty - fill_qty
+            new_qty = current_qty - fill_qty
 
             position.qty = new_qty
             position.last_update = datetime.now(timezone.utc)

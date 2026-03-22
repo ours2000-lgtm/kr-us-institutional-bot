@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "market_tag": "US",
+    "engine_id": "US-V9-PLUS",
+    "run_id": "REPLACE_WITH_UUID_V4",
+    "environment": "test",
+    "mode_tag": "rehearsal-no-order",
+    "latency_profile_version": "us-latency-v1",
+    "data_source": "XCME",
+    "engine_version": "v9plus",
+    "snapshot_timestamp_ns": 1730000000000000000,
+    "exchange_timestamp_ns": 1730000000000000000,
+    "drift_ns": 0,
+    "max_clock_drift_ms": 50
+  },
+  "session": {
+    "trading_day_id": "US_TRADING_DAY_2026-01-26",
+    "session_id": "US_RTH_2026-01-26",
+    "session_date": "2026-01-26",
+    "tz": "America/New_York",
+    "session_type": "RTH",
+    "session_start_utc": "2026-01-26T14:30:00Z",
+    "session_end_utc": "2026-01-26T21:00:00Z",
+    "holiday_flag": false,
+    "rollover_flag": false,
+    "upstream_status": "CONNECTED",
+    "session_status": "CONNECTED"
+  },
+  "market_profile": {
+    "profile_version": "mp-v1",
+    "profile_complete_flag": false,
+    "symbol": "ES",
+    "tick_size": 0.25,
+    "price_step": 0.25,
+    "ohlc": {
+      "open": 4800.0,
+      "high": 4825.0,
+      "low": 4788.0,
+      "close": 4812.0
+    },
+    "prev_day_close": 4795.0,
+    "gap_up_down_flag": "GAP_UP",
+    "total_volume": 123456,
+    "vwap": 4808.75,
+    "value_area_high": 4815.0,
+    "value_area_low": 4798.0,
+    "poc": 4807.0,
+    "sample_count": 3,
+    "is_truncated": true,
+    "volume_at_price": [
+      { "price": 4806.75, "volume": 1200 },
+      { "price": 4807.0, "volume": 1800 },
+      { "price": 4807.25, "volume": 900 }
+    ],
+    "volume_distribution_checksum": "PLACEHOLDER_SHA256_VAP",
+    "settlement_price": null,
+    "is_settled": false,
+    "profile_shape": "BALANCED"
+  },
+  "risk": {
+    "no_order": true,
+    "halt_reason_code": "H001",
+    "halt_reason": "NO_ORDER_REHEARSAL",
+    "halt_reason_detail": "Rehearsal mode: order path disabled",
+    "risk_evaluation_timestamp_utc": "2026-01-26T12:00:00Z",
+    "risk_flags": [
+      { "flag": "no_order", "severity": "HARD", "timestamp_utc": "2026-01-26T12:00:00Z" }
+    ],
+    "risk_limits": {
+      "max_position_size": 0,
+      "max_loss_threshold": 0
+    },
+    "current_drawdown": null,
+    "order_count_per_second": null
+  },
+  "observability": {
+    "event_id": "REPLACE_WITH_UUID_V4",
+    "event_type": "SNAPSHOT",
+    "phase": "REHEARSAL",
+    "phase_detail": "BOOT",
+    "sequence_number": 0,
+    "event_sequence": 0,
+    "observer_id": "engine.marketprofile",
+    "observer_version": "mp-observer-v1",
+    "audit_trail_link": null,
+    "notes": "",
+    "hashes": {
+      "payload_sha256": "PLACEHOLDER_SHA256_PAYLOAD",
+      "meta_sha256": "PLACEHOLDER_SHA256_META"
+    }
+  }
+}

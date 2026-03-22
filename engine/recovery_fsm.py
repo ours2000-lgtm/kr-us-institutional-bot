@@ -46,6 +46,19 @@ EVENT_CRITICAL_ERROR = "critical_error"
 EVENT_MANUAL_BLOCK = "manual_block"
 
 
+# ---------------------------------
+# compatibility policy object
+# ---------------------------------
+
+@dataclass(frozen=True)
+class ReadyPendingPolicy:
+    cooldown_seconds: int = 10
+
+    def __post_init__(self):
+        if int(self.cooldown_seconds) < 0:
+            raise ValueError("cooldown_seconds must be >= 0")
+
+
 ALLOWED_TRANSITIONS: Dict[str, Set[str]] = {
     STATE_CONNECTED: {
         STATE_DISCONNECTED,
@@ -84,18 +97,15 @@ ALLOWED_EVENTS: Dict[Tuple[str, str], Set[str]] = {
     (STATE_CONNECTED, STATE_DISCONNECTED): {
         EVENT_DISCONNECT_DETECTED,
     },
-
     (STATE_DISCONNECTED, STATE_RECONNECTING): {
         EVENT_RECONNECT_START,
     },
-
     (STATE_RECONNECTING, STATE_RECOVERING): {
         EVENT_LOGIN_SUCCESS,
     },
     (STATE_RECONNECTING, STATE_BLOCKED): {
         EVENT_RECONNECT_FAILED,
     },
-
     (STATE_RECOVERING, STATE_READY_PENDING): {
         EVENT_SNAPSHOT_OK,
     },
@@ -103,21 +113,18 @@ ALLOWED_EVENTS: Dict[Tuple[str, str], Set[str]] = {
         EVENT_SNAPSHOT_FAILED,
         EVENT_MISMATCH_CRITICAL,
     },
-
     (STATE_READY_PENDING, STATE_READY): {
         EVENT_COOLDOWN_ELAPSED,
     },
     (STATE_READY_PENDING, STATE_EXIT_ONLY): {
         EVENT_RISK_EXIT_ONLY_TRIGGERED,
     },
-
     (STATE_READY, STATE_EXIT_ONLY): {
         EVENT_RISK_EXIT_ONLY_TRIGGERED,
     },
     (STATE_READY, STATE_DISCONNECTED): {
         EVENT_DISCONNECT_DETECTED,
     },
-
     (STATE_EXIT_ONLY, STATE_READY): {
         EVENT_RISK_CLEARED,
     },
@@ -199,7 +206,10 @@ class RecoveryFSM:
                 )
 
             if new_state == STATE_BLOCKED:
-                allowed_pair_events = ALLOWED_EVENTS.get((current_state, new_state), set())
+                allowed_pair_events = ALLOWED_EVENTS.get(
+                    (current_state, new_state),
+                    set(),
+                )
 
                 if event not in ANY_TO_BLOCKED_EVENTS and event not in allowed_pair_events:
                     logger.error(

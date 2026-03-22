@@ -1,0 +1,65 @@
+    # ==========================================================
+    # (1) Mean Reversion — 과매도 반등 전략 (완성본)
+    # ==========================================================
+    def check_mean_reversion(self, symbol, tick, structure, flow):
+        """
+        Mean Reversion 조건:
+          - RSI 과매도 (RSI < 25)
+          - Bollinger Band 하단 이탈
+          - 최근 단기 추세 급락
+          - 변동성 과대 후 되돌림
+          - VWAP 대비 이격 과도 후 복귀
+        """
+
+        rsi = tick.get("rsi_14", None)
+        price = tick.get("price", None)
+        bb_low = tick.get("bb_low", None)
+        bb_mid = tick.get("bb_mid", None)
+        vwap = tick.get("vwap", None)
+        trend_1m = tick.get("trend_1m", None)
+        volume = tick.get("volume", None)
+        candle = tick.get("candle", None)  # "red", "green"
+
+        if None in [rsi, price, bb_low, bb_mid, vwap]:
+            return {"signal": None, "score": 0}
+
+        score = 0
+
+        # ------------------------------------------------------
+        # ① RSI 과매도 (< 25)
+        # ------------------------------------------------------
+        if rsi < 25:
+            score += 1
+
+        # ------------------------------------------------------
+        # ② 볼린저 밴드 하단 이탈 (Oversold Zone)
+        # ------------------------------------------------------
+        if price < bb_low:
+            score += 1
+
+        # ------------------------------------------------------
+        # ③ 1분 추세 급락 후 완만한 회복 (Reversion 패턴)
+        # ------------------------------------------------------
+        if trend_1m is not None and trend_1m < -0.4:
+            score += 1
+
+        # ------------------------------------------------------
+        # ④ VWAP 대비 과도 이탈 후 복귀 (V-Reversion)
+        # ------------------------------------------------------
+        if price < vwap * 0.985:      # VWAP 대비 1.5% 이상 하단
+            score += 1
+
+        # ------------------------------------------------------
+        # ⑤ 장대음봉 이후 첫 양봉 시도 (Candle Reversal)
+        # ------------------------------------------------------
+        if candle == "green":
+            score += 1
+
+        # ------------------------------------------------------
+        # 최종 판단
+        # ------------------------------------------------------
+        if score >= 3:
+            safe_log(f"[MR] {symbol} Mean Reversion BUY (score={score})")
+            return {"signal": "BUY", "score": score}
+
+        return {"signal": None, "score": score}

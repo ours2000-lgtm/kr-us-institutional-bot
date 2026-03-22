@@ -1,0 +1,16 @@
+[
+  {
+    "event_type": "RUN_START",
+    "trace_id": "T-002",
+    "ts_utc": "2026-02-05T00:00:00Z",
+    "emitter_id": "E-LOCAL"
+  },
+  {
+    "event_type": "TRANSITION",
+    "from_state": "S0_INIT",
+    "to_state": "S99_UNKNOWN",
+    "seq": 1,
+    "ts_utc": "2026-02-05T00:00:01Z",
+    "trace_id": "T-002"
+  }
+]

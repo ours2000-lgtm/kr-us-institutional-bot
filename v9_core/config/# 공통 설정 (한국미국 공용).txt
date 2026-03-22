@@ -1,0 +1,16 @@
+# 공통 설정 (한국/미국 공용)
+
+logging:
+  level: "INFO"
+  path: "logs"
+
+portfolio:
+  max_holdings: 5
+  cash_ratio: 0.95
+
+orderflow:
+  enabled: true
+
+risk:
+  use_trailing_stop: true
+  trailing_gap: 0.8

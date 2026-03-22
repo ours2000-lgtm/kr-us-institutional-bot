@@ -17,14 +17,15 @@ class ExecutionController:
         risk_manager,
         account_type="paper",
         recovery_state_supplier=None,
+        evidence_writer=None,
     ):
         self.adapter = adapter
         self.order_factory = order_factory
         self.risk_manager = risk_manager
         self.account_type = str(account_type).lower().strip()
         self.recovery_state_supplier = recovery_state_supplier
+        self.evidence_writer = evidence_writer
 
-        # intent_id -> tracking info
         self.open_intents = {}
 
     def execute_signal(self, signal):
@@ -34,9 +35,6 @@ class ExecutionController:
         )
 
         try:
-            # ---------------------------------
-            # 0) Dependency guard (fail-closed)
-            # ---------------------------------
             if self.adapter is None:
                 logger.error("EXECUTION_BLOCKED adapter is not configured")
                 return False
@@ -49,9 +47,6 @@ class ExecutionController:
                 logger.error("EXECUTION_BLOCKED order_factory is not configured")
                 return False
 
-            # ---------------------------------
-            # 1) Order 생성
-            # ---------------------------------
             order = self.order_factory.build_from_signal(signal)
 
             intent_id = getattr(order, "intent_id", None)
@@ -84,17 +79,6 @@ class ExecutionController:
                 )
                 return False
 
-            # ---------------------------------
-            # 2) Control-plane / FSM gate
-            # 정책:
-            # - READY 에서만 BUY 허용
-            # - READY / EXIT_ONLY 에서만 SELL 주문 허용
-            # - 나머지는 fail-closed 차단
-            #
-            # 우선순위:
-            # 1) recovery_state_supplier (FSM SSOT 권장)
-            # 2) adapter.recovery_state (legacy fallback)
-            # ---------------------------------
             raw_state = self._get_runtime_control_state()
             control_state = self._normalize_control_state(raw_state)
 
@@ -110,6 +94,25 @@ class ExecutionController:
                     control_state,
                     reason,
                 )
+
+                if self.evidence_writer is not None:
+                    self.evidence_writer.write(
+                        category="orders",
+                        event_type="order_blocked_by_fsm",
+                        component="ExecutionController",
+                        state=control_state,
+                        symbol=symbol,
+                        side=side,
+                        reason=reason,
+                        payload={
+                            "intent_id": intent_id,
+                            "raw_state": raw_state,
+                            "control_state": control_state,
+                            "qty": getattr(order, "qty", None),
+                            "order_type": getattr(order, "order_type", None),
+                            "account_type": self.account_type,
+                        },
+                    )
                 return False
 
             logger.info(
@@ -121,10 +124,6 @@ class ExecutionController:
                 control_state,
             )
 
-            # ---------------------------------
-            # 3) 중복 주문 방지
-            # 현재 단계: 같은 종목 + 같은 방향 차단
-            # ---------------------------------
             existing_symbol_sides = {
                 (info["symbol"], info["side"])
                 for info in self.open_intents.values()
@@ -139,10 +138,6 @@ class ExecutionController:
                 )
                 return False
 
-            # ---------------------------------
-            # 4) Risk Gate
-            # 반드시 RiskDecision 경로 사용
-            # ---------------------------------
             decision = self.risk_manager.evaluate_decision(order)
 
             logger.info(
@@ -166,9 +161,6 @@ class ExecutionController:
                 )
                 return False
 
-            # ---------------------------------
-            # 5) Broker 전송
-            # ---------------------------------
             ret = self.adapter.send_order(
                 order,
                 account_type=self.account_type,
@@ -198,14 +190,8 @@ class ExecutionController:
                 self._notify_order_failed(order)
                 return False
 
-            # ---------------------------------
-            # 6) 상태 추적 시작
-            # ---------------------------------
             self._track_open_order(order, symbol, side, intent_id)
 
-            # ---------------------------------
-            # 7) Risk hook: order sent
-            # ---------------------------------
             on_order_sent = getattr(self.risk_manager, "on_order_sent", None)
             if callable(on_order_sent):
                 try:
@@ -352,7 +338,6 @@ class ExecutionController:
     # ---------------------------------
 
     def _get_runtime_control_state(self):
-        # 1) explicit supplier (FSM SSOT 권장)
         supplier = self.recovery_state_supplier
         if callable(supplier):
             try:
@@ -362,7 +347,6 @@ class ExecutionController:
             except Exception:
                 logger.exception("READ_RECOVERY_STATE_SUPPLIER_FAILED")
 
-        # 2) legacy adapter fallback
         try:
             state = getattr(self.adapter, "recovery_state", None)
             if state is None:

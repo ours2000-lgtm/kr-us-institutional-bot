@@ -1,0 +1,32 @@
+{
+  "kind": "GOV_VALIDATION_EVIDENCE",
+  "artifact_type": "GOV_VALIDATION_EVIDENCE",
+  "inputs": {
+    "bundle_path": "tests/fixtures/traces/trace_ok_v1_signed.json",
+    "bundle_sha256": "71710f93644d4839bae8e8bfb6d82e01455007aa8498d4d7e7b7205d879f77a3"
+  },
+  "summary": {
+    "decision": "ALLOW",
+    "fail_closed": false,
+    "failed_stage": "NONE",
+    "violations_count": 0
+  },
+  "result": {
+    "decision": "ALLOW",
+    "fail_closed": false,
+    "failed_stage": "NONE",
+    "violations": [],
+    "schema_set_ref": "docs/schemas/v1",
+    "semantic_ruleset_version": "GOV_SEMANTIC_RULES_v1",
+    "canonicalizer_profile_version": "CANONICALIZER_v1",
+    "cryptographic_policy_version": "CRYPTO_POLICY_v1",
+    "validator_version": "v0.1"
+  },
+  "chain": {
+    "prev_hash": "GENESIS",
+    "this_hash": "a6ecb46847b9b9447999fbe23e565c4f7598e86a98d29a255164b7e7d7ec668b"
+  },
+  "meta": {
+    "created_at_utc": "2026-02-11T15:18:16.639886Z"
+  }
+}

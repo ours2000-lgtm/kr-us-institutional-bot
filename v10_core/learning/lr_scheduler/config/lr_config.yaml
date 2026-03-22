@@ -1,0 +1,45 @@
+# =====================================================================
+#   LR Scheduler V20 Configuration
+# =====================================================================
+
+base_lr:
+  KR: 0.8          # 한국장 기본 학습률
+  US: 1.0          # 미국장
+  CRYPTO: 1.2      # 암호화폐 (변동성 높음)
+  DEFAULT: 1.0
+
+warmup_steps:
+  KR: 150
+  US: 100
+  CRYPTO: 50
+  DEFAULT: 100
+
+# 세션별 multiplier
+session_mult:
+  open: 0.8
+  close: 0.7
+  asia: 0.85
+  euro: 1.0
+  us: 1.2
+  other: 1.0
+  default: 1.0
+
+# 시장 × 세션 조합 multiplier
+joint_mult:
+  KR-open: 0.85
+  KR-close: 0.75
+  US-open: 0.90
+  US-close: 0.70
+  CRYPTO-us: 1.3
+  DEFAULT: 1.0
+
+# 학습률 범위
+lr_range:
+  min: 1e-5
+  max: 3.0
+
+# EMA smoothing
+ema_alpha: 0.08
+
+# MAD normalization window
+mad_window: 500

@@ -1,0 +1,36 @@
+[
+  {
+    "event_type": "RUN_START",
+    "trace_id": "T-006",
+    "ts_utc": "2026-02-05T00:00:00Z",
+    "emitter_id": "E-LOCAL"
+  },
+  {
+    "event_type": "TRANSITION",
+    "trace_id": "T-006",
+    "from_state": "S0_INIT",
+    "to_state": "S1_COLLECTED",
+    "seq": 1,
+    "ts_utc": "2026-02-05T00:00:01Z"
+  },
+  {
+    "event_type": "TRANSITION",
+    "trace_id": "T-006",
+    "from_state": "S1_COLLECTED",
+    "to_state": "S2_REHEARSAL_PROVEN",
+    "seq": 2,
+    "ts_utc": "2026-02-05T00:00:02Z",
+    "payload": {
+      "rehearsal_id": "R-006",
+      "proof_hash": "deadbeef006"
+    }
+  },
+  {
+    "event_type": "TRANSITION",
+    "trace_id": "T-006",
+    "from_state": "S2_REHEARSAL_PROVEN",
+    "to_state": "S1_COLLECTED",
+    "seq": 3,
+    "ts_utc": "2026-02-05T00:00:03Z"
+  }
+]

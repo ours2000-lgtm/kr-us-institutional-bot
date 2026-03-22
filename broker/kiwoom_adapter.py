@@ -1,5 +1,3 @@
-# path: broker/kiwoom_adapter.py
-
 import sys
 from logging import getLogger
 
@@ -14,11 +12,19 @@ from engine.fill_event_store import FillEventStore
 from engine.position_manager import PositionManager
 from engine.recovery_fsm import (
     RecoveryFSM,
-    ReadyPendingPolicy,
     STATE_BLOCKED,
-    STATE_CONNECTED,
+    STATE_DISCONNECTED,
+    STATE_EXIT_ONLY,
+    STATE_READY,
     STATE_READY_PENDING,
     STATE_RECOVERING,
+    EVENT_COOLDOWN_ELAPSED,
+    EVENT_CRITICAL_ERROR,
+    EVENT_DISCONNECT_DETECTED,
+    EVENT_LOGIN_SUCCESS,
+    EVENT_MISMATCH_CRITICAL,
+    EVENT_RECONNECT_START,
+    EVENT_SNAPSHOT_OK,
 )
 
 
@@ -70,6 +76,8 @@ class KiwoomAdapter:
         self.risk_manager = None
         self.reconciliation_runner = None
         self.execution_controller = None
+        self.evidence_writer = None
+        self.order_event_bridge = None
 
         # reconciliation metadata
         self.reconciliation_exchange = "KRX"
@@ -90,10 +98,7 @@ class KiwoomAdapter:
         # Recovery FSM
         # ----------------------------------
         self.recovery_fsm = RecoveryFSM(
-            ready_policy=ReadyPendingPolicy(
-                min_ticks=5,
-                min_seconds=5,
-            )
+            initial_state=STATE_DISCONNECTED
         )
 
         # reconnect controls
@@ -105,13 +110,13 @@ class KiwoomAdapter:
         self._reconnect_timer.setSingleShot(True)
         self._reconnect_timer.timeout.connect(self._attempt_reconnect)
 
-        # ready pending periodic evaluator
-        self._ready_pending_eval_timer = QTimer()
-        self._ready_pending_eval_timer.setSingleShot(False)
-        self._ready_pending_eval_timer.timeout.connect(
-            self._evaluate_ready_pending_completion
+        # READY_PENDING cooldown timer
+        self._ready_pending_cooldown_timer = QTimer()
+        self._ready_pending_cooldown_timer.setSingleShot(True)
+        self._ready_pending_cooldown_timer.timeout.connect(
+            self._complete_ready_pending
         )
-        self._ready_pending_eval_interval_ms = 1000
+        self._ready_pending_cooldown_ms = 5000
 
         # ----------------------------------
         # TR state
@@ -146,6 +151,15 @@ class KiwoomAdapter:
 
     def login(self):
         logger.info("LOGIN_REQUESTED")
+
+        if self.recovery_state == STATE_DISCONNECTED:
+            self._transition_fsm(
+                "RECONNECTING",
+                EVENT_RECONNECT_START,
+                reason="login_requested",
+                allow_noop=True,
+            )
+
         self.ocx.dynamicCall("CommConnect()")
 
     def _on_login(self, err_code):
@@ -174,7 +188,19 @@ class KiwoomAdapter:
             )
             return
 
-        self.recovery_fsm.on_login_success()
+        if self.recovery_state == STATE_DISCONNECTED:
+            self._transition_fsm(
+                "RECONNECTING",
+                EVENT_RECONNECT_START,
+                reason="login_success_pre_alignment",
+                allow_noop=True,
+            )
+
+        self._transition_fsm(
+            STATE_RECOVERING,
+            EVENT_LOGIN_SUCCESS,
+            reason="login_success",
+        )
 
         if not self._restore_realtime_subscription():
             logger.error("REALTIME_RESUBSCRIBE_FAILED")
@@ -199,8 +225,20 @@ class KiwoomAdapter:
 
         logger.error("BROKER_DISCONNECTED_DETECTED reason=%s", reason)
 
-        self._stop_ready_pending_eval_timer()
-        self.recovery_fsm.on_disconnect(reason)
+        self._stop_ready_pending_cooldown_timer()
+
+        if self.recovery_state in {
+            STATE_READY,
+            STATE_EXIT_ONLY,
+            STATE_READY_PENDING,
+            STATE_RECOVERING,
+        }:
+            self._transition_fsm(
+                STATE_DISCONNECTED,
+                EVENT_DISCONNECT_DETECTED,
+                reason=reason,
+                allow_noop=True,
+            )
 
         if self.risk_manager is not None:
             self.risk_manager.block_trading("BROKER_DISCONNECTED")
@@ -225,8 +263,13 @@ class KiwoomAdapter:
             self._enter_blocked_state("RECONNECT_FAILED")
             return
 
-        if self.recovery_state != "RECONNECTING":
-            self.recovery_fsm.on_reconnect_attempt_started()
+        if self.recovery_state == STATE_DISCONNECTED:
+            self._transition_fsm(
+                "RECONNECTING",
+                EVENT_RECONNECT_START,
+                reason=event,
+                allow_noop=True,
+            )
 
         if self._reconnect_timer.isActive():
             logger.info(
@@ -236,7 +279,7 @@ class KiwoomAdapter:
             )
             return
 
-        self._stop_ready_pending_eval_timer()
+        self._stop_ready_pending_cooldown_timer()
         self._reconnect_timer.start(self._reconnect_backoff_ms)
 
         logger.info(
@@ -261,8 +304,13 @@ class KiwoomAdapter:
 
         self._reconnect_attempts += 1
 
-        if self.recovery_state != "RECONNECTING":
-            self.recovery_fsm.on_reconnect_attempt_started()
+        if self.recovery_state == STATE_DISCONNECTED:
+            self._transition_fsm(
+                "RECONNECTING",
+                EVENT_RECONNECT_START,
+                reason="timer_reconnect_attempt",
+                allow_noop=True,
+            )
 
         logger.info(
             "RECONNECT_ATTEMPT_STARTED attempt=%s max_attempts=%s",
@@ -309,9 +357,6 @@ class KiwoomAdapter:
             self._enter_blocked_state("RECOVERY_ACCOUNT_NOT_READY")
             return
 
-        # 정책:
-        # - recovery 과정에서는 sync TR 허용
-        # - normal runtime 경로에서는 sync TR 남용 금지
         if self.recovery_state != STATE_RECOVERING:
             logger.error(
                 "RECOVERY_VALIDATION_INVALID_STATE state=%s",
@@ -345,7 +390,9 @@ class KiwoomAdapter:
                 None,
             )
             if not callable(replace_fn):
-                raise ValueError("position_manager missing replace_active_positions_from_broker_snapshot")
+                raise ValueError(
+                    "position_manager missing replace_active_positions_from_broker_snapshot"
+                )
 
             replace_result = replace_fn(broker_snapshot)
 
@@ -383,10 +430,10 @@ class KiwoomAdapter:
                     "RECOVERY_RECONCILIATION_MISMATCH block_reason=%s",
                     block_reason,
                 )
-                self.recovery_fsm.on_recovery_mismatch(
-                    block_reason or "RECONCILIATION_DRIFT"
+                self._enter_blocked_state(
+                    block_reason or "RECONCILIATION_DRIFT",
+                    event=EVENT_MISMATCH_CRITICAL,
                 )
-                self._enter_blocked_state(block_reason or "RECONCILIATION_DRIFT")
                 return
 
             logger.info("RECOVERY_RECONCILIATION_MATCH")
@@ -406,8 +453,13 @@ class KiwoomAdapter:
                         return
 
             self._reconnect_attempts = 0
-            self.recovery_fsm.on_recovery_match()
-            self._start_ready_pending_eval_timer()
+
+            self._transition_fsm(
+                STATE_READY_PENDING,
+                EVENT_SNAPSHOT_OK,
+                reason="recovery_reconciliation_match",
+            )
+            self._start_ready_pending_cooldown_timer()
 
         except Exception:
             logger.exception("RECOVERY_FAILED")
@@ -416,46 +468,70 @@ class KiwoomAdapter:
     def manual_unblock(self):
         """
         BLOCKED -> DISCONNECTED 수동 해제.
-        자동으로 CONNECTED로 가지 않는다.
+
+        현재 RecoveryFSM은 BLOCKED를 terminal state로 두므로,
+        수동 해제 시 FSM 인스턴스를 재생성한 뒤 DISCONNECTED 상태로 복귀시킨다.
         """
         self._stop_reconnect_timer()
-        self._stop_ready_pending_eval_timer()
-        self.recovery_fsm.on_manual_unblock()
+        self._stop_ready_pending_cooldown_timer()
+
+        old_fsm = self.recovery_fsm
+
+        new_fsm = RecoveryFSM(initial_state=STATE_DISCONNECTED)
+        new_fsm.evidence_writer = self.evidence_writer
+        self.recovery_fsm = new_fsm
+
+        if self.position_manager is not None:
+            self.position_manager.set_recovery_state_supplier(
+                self.recovery_fsm.get_state
+            )
 
         if self.risk_manager is not None:
             self.risk_manager.clear_block("MANUAL_UNBLOCK")
 
-        logger.warning("RECOVERY_MANUAL_UNBLOCKED new_state=%s", self.recovery_state)
-
-    def _evaluate_ready_pending_completion(self):
-        if self.recovery_state != STATE_READY_PENDING:
-            self._stop_ready_pending_eval_timer()
-            return
-
-        completed = self.recovery_fsm.try_complete_ready_pending()
-        if completed:
-            logger.info("READY_PENDING_COMPLETE -> CONNECTED")
-            self._stop_ready_pending_eval_timer()
-
-    def _start_ready_pending_eval_timer(self):
-        self._stop_ready_pending_eval_timer()
-        self._ready_pending_eval_timer.start(self._ready_pending_eval_interval_ms)
-
-        logger.info(
-            "READY_PENDING_EVAL_TIMER_STARTED interval_ms=%s policy=%s",
-            self._ready_pending_eval_interval_ms,
-            self.recovery_fsm.snapshot().get("ready_policy"),
+        logger.warning(
+            "RECOVERY_MANUAL_UNBLOCKED old_state=%s new_state=%s",
+            old_fsm.get_state(),
+            self.recovery_state,
         )
 
-    def _stop_ready_pending_eval_timer(self):
-        if self._ready_pending_eval_timer.isActive():
-            self._ready_pending_eval_timer.stop()
+    def _complete_ready_pending(self):
+        if self.recovery_state != STATE_READY_PENDING:
+            self._stop_ready_pending_cooldown_timer()
+            return
 
-    def _enter_blocked_state(self, reason: str):
+        self._transition_fsm(
+            STATE_READY,
+            EVENT_COOLDOWN_ELAPSED,
+            reason="ready_pending_cooldown_elapsed",
+        )
+        logger.info("READY_PENDING_COMPLETE -> READY")
+        self._stop_ready_pending_cooldown_timer()
+
+    def _start_ready_pending_cooldown_timer(self):
+        self._stop_ready_pending_cooldown_timer()
+        self._ready_pending_cooldown_timer.start(self._ready_pending_cooldown_ms)
+
+        logger.info(
+            "READY_PENDING_COOLDOWN_TIMER_STARTED cooldown_ms=%s",
+            self._ready_pending_cooldown_ms,
+        )
+
+    def _stop_ready_pending_cooldown_timer(self):
+        if self._ready_pending_cooldown_timer.isActive():
+            self._ready_pending_cooldown_timer.stop()
+
+    def _enter_blocked_state(self, reason: str, event: str = EVENT_CRITICAL_ERROR):
         self._stop_reconnect_timer()
-        self._stop_ready_pending_eval_timer()
+        self._stop_ready_pending_cooldown_timer()
 
-        self.recovery_fsm.on_manual_block(reason)
+        if self.recovery_state != STATE_BLOCKED:
+            self._transition_fsm(
+                STATE_BLOCKED,
+                event,
+                reason=reason,
+                allow_noop=True,
+            )
 
         if self.risk_manager is not None:
             self.risk_manager.block_trading(reason)
@@ -470,9 +546,43 @@ class KiwoomAdapter:
             "reconnect_attempts": self._reconnect_attempts,
             "reconnect_max_attempts": self._reconnect_max_attempts,
             "account": self.account,
-            "fsm": self.recovery_fsm.snapshot(),
+            "fsm": self.recovery_fsm.get_last_transition_snapshot(),
             "pending_intents": list(self._pending_intents.keys()),
         }
+
+    def _transition_fsm(
+        self,
+        new_state: str,
+        event: str,
+        reason: str,
+        allow_noop: bool = False,
+    ):
+        current_state = self.recovery_state
+
+        if allow_noop and current_state == new_state:
+            logger.info(
+                "FSM_TRANSITION_NOOP state=%s event=%s reason=%s",
+                current_state,
+                event,
+                reason,
+            )
+            return None
+
+        try:
+            return self.recovery_fsm.transition(
+                new_state=new_state,
+                event=event,
+                reason=reason,
+            )
+        except ValueError:
+            logger.exception(
+                "FSM_TRANSITION_FAILED current_state=%s new_state=%s event=%s reason=%s",
+                current_state,
+                new_state,
+                event,
+                reason,
+            )
+            raise
 
     # ----------------------------------
     # Order
@@ -481,8 +591,8 @@ class KiwoomAdapter:
     def send_order(self, order, account_type="paper"):
         """
         정책:
-        - CONNECTED: BUY/SELL 허용
-        - READY_PENDING: EXIT ONLY
+        - READY: BUY/SELL 허용
+        - EXIT_ONLY: SELL 허용 (기존 포지션 감소 방향만)
         - 그 외: 전면 차단
         """
 
@@ -493,7 +603,7 @@ class KiwoomAdapter:
             )
             return -1
 
-        if self.recovery_fsm.should_block_all_orders():
+        if self.recovery_state == STATE_BLOCKED:
             logger.error(
                 "ORDER_BLOCKED_RECOVERY_STATE state=%s order=%s",
                 self.recovery_state,
@@ -501,7 +611,7 @@ class KiwoomAdapter:
             )
             return -1
 
-        if self.recovery_fsm.is_exit_only():
+        if self.recovery_state == STATE_EXIT_ONLY:
             if not self._is_exit_only_order(order):
                 logger.error(
                     "ORDER_BLOCKED_EXIT_ONLY state=%s order=%s",
@@ -509,6 +619,13 @@ class KiwoomAdapter:
                     order,
                 )
                 return -1
+        elif self.recovery_state != STATE_READY:
+            logger.error(
+                "ORDER_BLOCKED_RECOVERY_STATE state=%s order=%s",
+                self.recovery_state,
+                order,
+            )
+            return -1
 
         decision = self.order_guard.evaluate(account_type=account_type)
 
@@ -826,9 +943,6 @@ class KiwoomAdapter:
     # ----------------------------------
 
     def _on_receive_real(self, code, real_type, real_data):
-        if self.recovery_state == STATE_READY_PENDING:
-            self.recovery_fsm.on_ready_pending_tick()
-
         logger.debug("REAL_EVENT code=%s type=%s", code, real_type)
 
         if not self.real_router:
@@ -840,6 +954,123 @@ class KiwoomAdapter:
             real_data,
             self,
         )
+
+    # ----------------------------------
+    # Chejan helpers
+    # ----------------------------------
+
+    def _normalize_chejan_side(self, side_raw: str) -> str:
+        text = str(side_raw or "").strip().upper()
+
+        if text in {"1", "+매수", "매수", "BUY"}:
+            return "BUY"
+
+        if text in {"2", "-매도", "매도", "SELL"}:
+            return "SELL"
+
+        return text
+
+    def _parse_non_negative_int(self, raw_value, default=None):
+        text = str(raw_value).strip() if raw_value is not None else ""
+        if not text:
+            return default
+
+        try:
+            value = int(text)
+        except (TypeError, ValueError):
+            return default
+
+        if value < 0:
+            return default
+
+        return value
+
+    def _is_ack_event(self, raw: dict) -> bool:
+        """
+        키움 chejan raw에서 '주문 접수/확인' 성격 이벤트인지 보수적으로 판별.
+
+        원칙:
+        - order_no가 있어야 함
+        - order_status_raw가 있어야 함
+        - fill_qty가 비어 있거나 0
+        """
+        if not isinstance(raw, dict):
+            return False
+
+        broker_order_id = str(raw.get("order_no", "")).strip()
+        if not broker_order_id:
+            return False
+
+        order_status_raw = str(raw.get("order_status_raw", "")).strip()
+        if not order_status_raw:
+            return False
+
+        fill_qty = self._parse_non_negative_int(raw.get("fill_qty_raw"), default=0)
+        return fill_qty == 0
+
+    def _route_fill_to_order_event_bridge(self, fill_event, raw: dict):
+        if self.order_event_bridge is None:
+            return
+
+        broker_order_id = str(getattr(fill_event, "order_no", "")).strip()
+        if not broker_order_id:
+            return
+
+        symbol = str(getattr(fill_event.key, "symbol", "")).strip()
+        side = str(getattr(fill_event, "side", "")).strip().upper()
+        filled_qty = self._parse_non_negative_int(
+            getattr(fill_event, "fill_qty", None),
+            default=None,
+        )
+
+        if filled_qty is None or filled_qty <= 0:
+            return
+
+        remaining_qty = self._parse_non_negative_int(
+            raw.get("unfilled_qty_raw"),
+            default=None,
+        )
+
+        payload = {
+            "source": "kiwoom_chejan",
+            "symbol": symbol,
+            "side": side,
+            "order_no": broker_order_id,
+            "order_status_raw": raw.get("order_status_raw"),
+            "orig_order_no": raw.get("orig_order_no"),
+        }
+
+        try:
+            if remaining_qty is None:
+                logger.debug(
+                    "ORDER_FILL_BRIDGE_SKIPPED remaining_qty_unknown order_no=%s",
+                    broker_order_id,
+                )
+                return
+
+            if remaining_qty == 0:
+                self.order_event_bridge.handle_full_fill(
+                    broker_order_id=broker_order_id,
+                    filled_qty=filled_qty,
+                    intent_id=None,
+                    reason="full_fill",
+                    payload=payload,
+                )
+                return
+
+            self.order_event_bridge.handle_partial_fill(
+                broker_order_id=broker_order_id,
+                filled_qty=filled_qty,
+                remaining_qty=remaining_qty,
+                intent_id=None,
+                reason="partial_fill",
+                payload=payload,
+            )
+        except Exception:
+            logger.exception(
+                "ORDER_FILL_BRIDGE_FAILED order_no=%s",
+                broker_order_id,
+            )
 
     # ----------------------------------
     # Chejan Event
@@ -862,6 +1093,64 @@ class KiwoomAdapter:
 
         logger.debug("CHEJAN_RAW %s", raw)
 
+        broker_order_id = str(raw.get("order_no", "")).strip()
+        symbol = str(raw.get("symbol", "")).strip()
+        side = self._normalize_chejan_side(raw.get("side_raw"))
+
+        matched_intent_id = None
+        if broker_order_id:
+            matched_intent_id = self._bind_pending_intent_by_chejan(
+                broker_order_id=broker_order_id,
+                symbol=symbol,
+                side=side,
+            )
+
+            if matched_intent_id:
+                logger.debug(
+                    "CHEJAN_BOUND_PENDING_INTENT intent=%s broker_id=%s symbol=%s",
+                    matched_intent_id,
+                    broker_order_id,
+                    symbol,
+                )
+
+        # ----------------------------------
+        # ACK / order accept path
+        # ----------------------------------
+        if self._is_ack_event(raw):
+            logger.info(
+                "CHEJAN_ACK_DETECTED broker_order_id=%s symbol=%s order_status_raw=%s",
+                broker_order_id,
+                symbol,
+                raw.get("order_status_raw"),
+            )
+
+            try:
+                if self.order_event_bridge is not None and broker_order_id:
+                    self.order_event_bridge.handle_order_ack(
+                        broker_order_id=broker_order_id,
+                        intent_id=matched_intent_id,
+                        reason="broker_ack",
+                        payload={
+                            "source": "kiwoom_chejan",
+                            "symbol": symbol,
+                            "side": side,
+                            "order_status_raw": raw.get("order_status_raw"),
+                            "order_qty_raw": raw.get("order_qty_raw"),
+                            "unfilled_qty_raw": raw.get("unfilled_qty_raw"),
+                            "order_price_raw": raw.get("order_price_raw"),
+                            "orig_order_no": raw.get("orig_order_no"),
+                        },
+                    )
+            except Exception:
+                logger.exception(
+                    "ORDER_ACK_BRIDGE_FAILED broker_order_id=%s symbol=%s",
+                    broker_order_id,
+                    symbol,
+                )
+
+        # ----------------------------------
+        # Fill path
+        # ----------------------------------
         fill_event = self.fill_normalizer.normalize_kiwoom_fill(raw)
 
         if not fill_event:
@@ -877,6 +1166,8 @@ class KiwoomAdapter:
             fill_event.exchange_time.isoformat(),
             fill_event.ingest_time.isoformat(),
         )
+
+        self._route_fill_to_order_event_bridge(fill_event, raw)
 
         try:
             appended = self.fill_store.append(fill_event, raw_event=raw)
@@ -925,7 +1216,7 @@ class KiwoomAdapter:
                 broker_order_id = str(fill_event.order_no).strip()
                 symbol = str(fill_event.key.symbol).strip()
 
-                if broker_order_id:
+                if broker_order_id and matched_intent_id is None:
                     matched_intent_id = self._bind_pending_intent_by_chejan(
                         broker_order_id=broker_order_id,
                         symbol=symbol,
@@ -940,6 +1231,7 @@ class KiwoomAdapter:
                             symbol,
                         )
 
+                if broker_order_id:
                     self.execution_controller.mark_order_closed_by_broker_order_id(
                         broker_order_id,
                         symbol,

@@ -1,0 +1,18 @@
+{
+  "trace_id": "b78b04592c9b433ea0655fdef358ae7d",
+  "created_at_utc": "2026-02-12T07:46:20.008008Z",
+  "decision": "DENY",
+  "fail_closed": true,
+  "reason_code": "FAILED_UNKNOWN",
+  "actor_id": "MOCK_ACTOR",
+  "context": {
+    "mode": "MOCK_DRY_RUN",
+    "trace_kind": "GOVERNANCE_E2E",
+    "note": "This is a synthetic trace to validate end-to-end evidence pipeline.",
+    "repo_root": "E:\\KR_US_INSTITUTIONAL_BOT",
+    "prev_chain_hash_state": "GENESIS"
+  },
+  "outcome": null,
+  "raw_reason": "MISSING_REASON",
+  "engine_version": null
+}
